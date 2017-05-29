@@ -37,7 +37,7 @@ public class HisDocLayoutComp {
     public static void main(String[] args) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
-        if (args.length < 2) {
+        if (args.length < 3) {
             logger.error("Usage: Evaluator image_gt.jpg page_gt.xml page_to_evaluate.xml [results.csv] [iu_matching_threshold] [take_comment_lines_boolean]");
         } else {
 
@@ -46,7 +46,7 @@ public class HisDocLayoutComp {
             List<Polygon> output = null;
             List<Polygon> truth = null;
             String outputPath = "";
-            double threshold = 75;
+            double threshold = 0.75;
             boolean comments = false;
 
             if (args.length > 3) {

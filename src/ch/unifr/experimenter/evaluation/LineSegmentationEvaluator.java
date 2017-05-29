@@ -93,6 +93,7 @@ public class LineSegmentationEvaluator {
                 for(int j = ymin; j < ymax; j++) {
 
                     // take only foreground pixels into account
+                    //TODO detect when gt image is not gt ;-)
                     int pixel = 0xFF & image.getRGB(i,j);
                     if (pixel != 1) {
                         continue;
