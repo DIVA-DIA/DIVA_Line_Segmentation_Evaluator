@@ -92,35 +92,43 @@ public class LineSegmentationEvaluator {
             for(int i = xmin; i <= xmax; i++) {
                 for(int j = ymin; j < ymax; j++) {
 
-                    // take only foreground pixels into account
-                    //TODO detect when gt image is not gt ;-)
-                    int pixel = 0xFF & image.getRGB(i,j);
-                    if (pixel != 1) {
+                    // ignore boundary pixels
+                    int boundary = (image.getRGB(i,j) >> 23) & 0x1;
+                    if (boundary == 1) {
                         continue;
                     }
 
+                    // ignore background pixels
+                    int background = (image.getRGB(i,j) >> 0) & 0x1;
+                    if (background == 1) {
+                        continue;
+                    }
+
+                    boolean isInRmo = rmo.contains(i, j);
+                    boolean isInRgt = rgt.contains(i, j);
+
                     // check if match
-                    if (rmo.contains(i, j) && rgt.contains(i, j)) {
+                    if (isInRmo && isInRgt) {
                         matchingPixels++;
                     }
 
                     // check if missed
-                    if (!rmo.contains(i, j) && rgt.contains(i, j)) {
+                    if (!isInRmo && isInRgt) {
                         missedPixels++;
                     }
 
                     // check if wrongly detected
-                    if (rmo.contains(i, j) && !rgt.contains(i, j)) {
+                    if (isInRmo && !isInRgt) {
                         falsePixels++;
                     }
 
                     // compute pmo size
-                    if (rmo.contains(i, j)) {
+                    if (isInRmo) {
                         outputPixels++;
                     }
 
                     // compute pgt size
-                    if (rgt.contains(i, j)) {
+                    if (isInRgt) {
                         truthPixels++;
                     }
                 }
