@@ -17,11 +17,11 @@ import java.io.IOException;
 import java.util.List;
 
 /**
- * Experimenter class of the Experimenter project
+ * HisDocLayoutComp class of the ICDAR 2017 competition
  *
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
  * @date 16.08.16
- * @brief The experimenter main class
+ * @brief The line segmentation evaluator main class
  */
 public class HisDocLayoutComp {
 
@@ -82,7 +82,7 @@ public class HisDocLayoutComp {
 
             // Evaluating...
             logger.info("Evaluating...");
-            Results results = new LineSegmentationEvaluator().evaluate(image, output, truth, threshold, comments);
+            Results results = new LineSegmentationEvaluator().evaluate(image, truth, output, threshold, comments);
 
 
             // Output

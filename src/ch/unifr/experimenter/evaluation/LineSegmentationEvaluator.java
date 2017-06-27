@@ -42,14 +42,13 @@ public class LineSegmentationEvaluator {
     /**
      * Evaluate output data with respect to ground truth
      *
-     *
-     * @param image
-     * @param methodOutput the polygons output by the method to evaluate
-     * @param groundTruth  the ground truth polygons
-     * @param threshold
-     *@param comments @return Results object
+     * @param groundTruthImage         the ground truth groundTruthImage
+     * @param methodOutput  the polygons output by the method to evaluate
+     * @param groundTruth   the ground truth polygons
+     * @param threshold     the IU threshold for line matching
+     * @return Results object
      */
-    public Results evaluate(BufferedImage image, List<Polygon> methodOutput, List<Polygon> groundTruth, double threshold, boolean comments) {
+    public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> methodOutput, double threshold, boolean comments) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
@@ -93,55 +92,57 @@ public class LineSegmentationEvaluator {
                 for(int j = ymin; j < ymax; j++) {
 
                     // ignore boundary pixels
-                    int boundary = (image.getRGB(i,j) >> 23) & 0x1;
+                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
                     if (boundary == 1) {
                         continue;
                     }
 
                     // ignore background pixels
-                    int background = (image.getRGB(i,j) >> 0) & 0x1;
+                    int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
                     if (background == 1) {
                         continue;
                     }
 
-                    boolean isInRmo = rmo.contains(i, j);
-                    boolean isInRgt = rgt.contains(i, j);
+                    boolean isInPmo = pmo.contains(i, j);
+                    boolean isInPgt = pgt.contains(i, j);
 
                     // check if match
-                    if (isInRmo && isInRgt) {
+                    if (isInPmo && isInPgt) {
                         matchingPixels++;
                     }
 
                     // check if missed
-                    if (!isInRmo && isInRgt) {
+                    if (!isInPmo && isInPgt) {
                         missedPixels++;
                     }
 
                     // check if wrongly detected
-                    if (isInRmo && !isInRgt) {
+                    if (isInPmo && !isInPgt) {
                         falsePixels++;
                     }
 
                     // compute pmo size
-                    if (isInRmo) {
+                    if (isInPmo) {
                         outputPixels++;
                     }
 
                     // compute pgt size
-                    if (isInRgt) {
+                    if (isInPgt) {
                         truthPixels++;
                     }
                 }
             }
 
-            // Take matching into account if IU > 75%
+            // Take matching into account if IU > threshold
             double iu = 0;
             double union = matchingPixels + missedPixels + falsePixels;
             if (union > 0) {
                 iu = matchingPixels / union;
             }
             logger.trace("IU = " + iu);
+
             if (iu > threshold) {
+                logger.trace("line detected");
                 nbLinesCorrects++;
 
                 matchingSum += matchingPixels;
@@ -149,6 +150,8 @@ public class LineSegmentationEvaluator {
                 falseSum += falsePixels;
                 outputSum += outputPixels;
                 truthSum += truthPixels;
+            } else {
+                logger.debug("line skipped, IU below threshold: " + iu);
             }
         }
 
