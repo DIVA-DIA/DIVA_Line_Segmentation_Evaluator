@@ -40,6 +40,11 @@ public class LineSegmentationEvaluator {
     protected static final Logger logger = Logger.getLogger(LineSegmentationEvaluator.class);
 
     /**
+     * Evaluation image
+     */
+    private BufferedImage evalImage = null;
+
+    /**
      * Evaluate output data with respect to ground truth
      *
      * @param groundTruthImage         the ground truth groundTruthImage
@@ -54,6 +59,9 @@ public class LineSegmentationEvaluator {
         // Match overlapping polygons
         Map<Polygon, Polygon> matching = getMatchingPolygons(methodOutput, groundTruth, comments);
         logger.debug("matching.size " + matching.size());
+
+        // Init evaluation image
+        evalImage = new BufferedImage(groundTruthImage.getWidth(), groundTruthImage.getHeight(), BufferedImage.TYPE_INT_RGB);
 
         // Line count
         int nbLinesCorrects = 0;
@@ -109,16 +117,19 @@ public class LineSegmentationEvaluator {
                     // check if match
                     if (isInPmo && isInPgt) {
                         matchingPixels++;
+                        evalImage.setRGB(i, j, Color.green.getRGB());
                     }
 
                     // check if missed
                     if (!isInPmo && isInPgt) {
                         missedPixels++;
+                        evalImage.setRGB(i, j, Color.blue.getRGB());
                     }
 
                     // check if wrongly detected
                     if (isInPmo && !isInPgt) {
                         falsePixels++;
+                        evalImage.setRGB(i, j, Color.red.getRGB());
                     }
 
                     // compute pmo size
@@ -302,6 +313,14 @@ public class LineSegmentationEvaluator {
         logger.info("found " + matching.size() + " matches");
         logger.trace(matching.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(matching)));
         return matching;
+    }
+
+    /**
+     * Get the evaluation image
+     * @return eval image
+     */
+    public BufferedImage getEvalImage() {
+        return evalImage;
     }
 
 }

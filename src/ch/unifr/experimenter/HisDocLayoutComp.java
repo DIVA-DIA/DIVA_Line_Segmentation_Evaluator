@@ -82,8 +82,20 @@ public class HisDocLayoutComp {
 
             // Evaluating...
             logger.info("Evaluating...");
-            Results results = new LineSegmentationEvaluator().evaluate(image, truth, output, threshold, comments);
+            LineSegmentationEvaluator evaluator = new LineSegmentationEvaluator();
+            Results results = evaluator.evaluate(image, truth, output, threshold, comments);
 
+
+            // Write evaluation image
+            String evalImagePath = outputPath.substring(0, outputPath.lastIndexOf('.'));
+            evalImagePath += ".eval";
+            evalImagePath += args[0].substring(args[0].lastIndexOf('.'));
+            try {
+                ImageIO.write(evaluator.getEvalImage(), evalImagePath.substring(evalImagePath.lastIndexOf('.') + 1), new File(evalImagePath));
+                logger.info("Writing evaluation image in " + evalImagePath);
+            } catch (IOException e) {
+                logger.error(e);
+            }
 
             // Output
             if (!outputPath.isEmpty()) {
