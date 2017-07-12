@@ -30,9 +30,13 @@ public class LineSegmentationEvaluator {
     /**
      * Keys for the different measures
      */
-    public static final String LINES_NB_FOUND = "LineSegmentation.NbLinesFound.int";
+    public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
+    public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
     public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
-    public static final String LINES_AVG_IU = "LineSegmentation.IntersectionOverUnion.double";
+    public static final String LINES_NB_RECALL = "LineSegmentation.NbLinesRecall.Double";
+    public static final String LINES_NB_PRECISION = "LineSegmentation.NbLinesPrecision.Double";
+    public static final String LINES_NB_IU = "LineSegmentation.NbLinesIU.double";
+    public static final String LINES_PIXEL_IU = "LineSegmentation.PixelIU.double";
 
     /**
      * Log4j logger
@@ -99,37 +103,28 @@ public class LineSegmentationEvaluator {
             for(int i = xmin; i <= xmax; i++) {
                 for(int j = ymin; j < ymax; j++) {
 
-                    // ignore boundary pixels
-                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
-                    if (boundary == 1) {
-                        continue;
-                    }
-
                     // ignore background pixels
                     int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
                     if (background == 1) {
                         continue;
                     }
 
+                    // ignore boundary pixels
+                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
+                    if (boundary == 1) {
+                        continue;
+                    }
+
                     boolean isInPmo = pmo.contains(i, j);
                     boolean isInPgt = pgt.contains(i, j);
 
-                    // check if match
-                    if (isInPmo && isInPgt) {
+
+                    if (isInPmo && isInPgt) { // check if match
                         matchingPixels++;
-                        evalImage.setRGB(i, j, Color.green.getRGB());
-                    }
-
-                    // check if missed
-                    if (!isInPmo && isInPgt) {
+                    } else if (!isInPmo && isInPgt) {  // check if missed
                         missedPixels++;
-                        evalImage.setRGB(i, j, Color.blue.getRGB());
-                    }
-
-                    // check if wrongly detected
-                    if (isInPmo && !isInPgt) {
+                    } else if (isInPmo && !isInPgt) { // check if wrongly detected
                         falsePixels++;
-                        evalImage.setRGB(i, j, Color.red.getRGB());
                     }
 
                     // compute pmo size
@@ -161,47 +156,117 @@ public class LineSegmentationEvaluator {
                 falseSum += falsePixels;
                 outputSum += outputPixels;
                 truthSum += truthPixels;
+
+                // update visualization image
+                // for every pixel of the bounding box
+                for(int i = xmin; i <= xmax; i++) {
+                    for(int j = ymin; j < ymax; j++) {
+
+                        // ignore background pixels
+                        int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
+                        if (background == 1) {
+                            continue;
+                        }
+
+                        // ignore boundary pixels
+                        int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
+                        if (boundary == 1) {
+                            evalImage.setRGB(i, j, Color.gray.getRGB());
+                            continue;
+                        }
+
+                        boolean isInPmo = pmo.contains(i, j);
+                        boolean isInPgt = pgt.contains(i, j);
+
+                        if (isInPmo && isInPgt) { // check if match
+                            evalImage.setRGB(i, j, Color.green.getRGB());
+                        } else if (!isInPmo && isInPgt) { // check if missed
+                            evalImage.setRGB(i, j, Color.blue.getRGB());
+                        } else if (isInPmo && !isInPgt) { // check if wrongly detected
+                            evalImage.setRGB(i, j, Color.red.getRGB());
+                        }
+                    }
+                }
             } else {
                 logger.debug("line skipped, IU below threshold: " + iu);
             }
         }
 
-        double unionSum = matchingSum + missedSum + falseSum;
-
         // Debug printing
-        logger.debug("truthSum = " + truthSum);
-        logger.debug("outputSum = " + outputSum);
+        logger.trace("truthSum = " + truthSum);
+        logger.trace("outputSum = " + outputSum);
 
-        logger.debug("matchingSum = " + matchingSum);
-        logger.debug("falseSum = " + falseSum);
-        logger.debug("missedSum = " + missedSum);
+        logger.trace("matchingSum = " + matchingSum);
+        logger.trace("falseSum = " + falseSum);
+        logger.trace("missedSum = " + missedSum);
 
-        logger.debug("matchingSum + missedSum = " + (matchingSum + missedSum));
-        logger.debug("matchingSum + falseSum = " + (matchingSum + falseSum));
+        logger.trace("matchingSum + missedSum = " + (matchingSum + missedSum));
+        logger.trace("matchingSum + falseSum = " + (matchingSum + falseSum));
 
-        // Printing
-        logger.info("Precision = " + matchingSum / (double)outputSum);
-        logger.info("Recall = " + matchingSum / (double)truthSum);
-        logger.info("True Positive = " + matchingSum / (double)truthSum);
-        logger.info("False Positive = " + falseSum / (double)outputSum);
-        logger.info("False Negative = " + missedSum / (double)truthSum);
+        // Line scores
+        double lineRecall = 0;
+        double linePrecision = 0;
+        double lineIU = 0;
+        if (groundTruth.size() > 0) {
+            lineRecall = nbLinesCorrects / (double)groundTruth.size();
+        }
+        if (methodOutput.size() > 0) {
+            linePrecision = nbLinesCorrects / (double)methodOutput.size();
+        }
+        int lineUnion = groundTruth.size() + methodOutput.size() - nbLinesCorrects;
+        if (lineUnion > 0) {
+            lineIU = nbLinesCorrects / (double)lineUnion;
+        }
+
+        // Pixel scores
+        double precision = 0;
+        double recall = 0;
+        double truePositive = 0;
+        double falsePositive = 0;
+        double falseNegative = 0;
+        double avgPixelIU = 0;
+        if (outputSum > 0) {
+            precision = matchingSum / (double)outputSum;
+            falsePositive = falseSum / (double)outputSum;
+        }
+        if ( truthSum > 0) {
+            recall = matchingSum / (double)truthSum;
+            truePositive = matchingSum / (double)truthSum;
+            falseNegative =  missedSum / (double)truthSum;
+        }
+        int unionSum = matchingSum + missedSum + falseSum;
+        if (unionSum > 0) {
+            avgPixelIU = matchingSum / (double)unionSum;
+        }
+
+        // Logging
+        logger.info("line IU = " + lineIU);
+        logger.trace("intersection = " + matchingSum);
+        logger.trace("union = " + unionSum);
+        logger.info("pixel IU = " + avgPixelIU);
+        logger.info("Precision = " + precision);
+        logger.info("Recall = " + recall);
+        logger.debug("True Positive = " + truePositive);
+        logger.debug("False Positive = " + falsePositive);
+        logger.debug("False Negative = " + falseNegative);
 //        logger.info("True Negative = " + (pageSum - outputSum) / (double)(pageSum - truthSum));
 
-        logger.info("intersection = " + matchingSum);
-        logger.info("union = " + unionSum);
-        logger.info("IU = " + (matchingSum / unionSum));
-
-        // Storing results
+        // Storing line results
         Results results = new Results();
         results.put(LINES_NB_TRUTH, groundTruth.size());
-        results.put(LINES_NB_FOUND, nbLinesCorrects);
-        results.put(LINES_AVG_IU, matchingSum / unionSum);
+        results.put(LINES_NB_PROPOSED, methodOutput.size());
+        results.put(LINES_NB_CORRECT, nbLinesCorrects);
+        results.put(LINES_NB_RECALL, lineRecall);
+        results.put(LINES_NB_PRECISION, linePrecision);
+        results.put(LINES_NB_IU, lineIU);
 
-        results.put(Results.PRECISION, matchingSum / (double)outputSum);
-        results.put(Results.RECALL, matchingSum / (double)truthSum);
-        results.put(Results.TRUEPOSITIVE, matchingSum / (double)truthSum);
-        results.put(Results.FALSEPOSITIVE, falseSum / (double)outputSum);
-        results.put(Results.FALSENEGATIVE, missedSum / (double)truthSum);
+        // Storing pixel results
+        results.put(LINES_PIXEL_IU, avgPixelIU);
+        results.put(Results.PRECISION, precision);
+        results.put(Results.RECALL, recall);
+        results.put(Results.TRUEPOSITIVE, truePositive);
+        results.put(Results.FALSEPOSITIVE, falsePositive);
+        results.put(Results.FALSENEGATIVE, falseNegative);
 //        results.put(Results.TRUENEGATIVE, (pageSum - outputSum) / (double)(pageSum - truthSum));
 
         logger.trace(results.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(results)));

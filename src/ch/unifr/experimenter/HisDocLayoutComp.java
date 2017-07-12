@@ -4,6 +4,7 @@
  */
 
 package ch.unifr.experimenter;
+
 import ch.unifr.experimenter.database.ImageLinePageDataset;
 import ch.unifr.experimenter.evaluation.LineSegmentationEvaluator;
 import ch.unifr.experimenter.evaluation.Results;
@@ -38,7 +39,7 @@ public class HisDocLayoutComp {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         if (args.length < 3) {
-            logger.error("Usage: Evaluator image_gt.jpg page_gt.xml page_to_evaluate.xml [results.csv] [iu_matching_threshold] [take_comment_lines_boolean]");
+            logger.error("Usage: Evaluator image_gt.jpg page_gt.xml page_to_evaluate.xml [results.csv] [iu_matching_threshold] [take_comment_lines_boolean]"); // add evaluation image filename
         } else {
 
             // Params
@@ -88,7 +89,7 @@ public class HisDocLayoutComp {
 
             // Write evaluation image
             String evalImagePath = outputPath.substring(0, outputPath.lastIndexOf('.'));
-            evalImagePath += ".eval";
+            evalImagePath += ".visualization";
             evalImagePath += args[0].substring(args[0].lastIndexOf('.'));
             try {
                 ImageIO.write(evaluator.getEvalImage(), evalImagePath.substring(evalImagePath.lastIndexOf('.') + 1), new File(evalImagePath));
