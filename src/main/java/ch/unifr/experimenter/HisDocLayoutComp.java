@@ -92,7 +92,7 @@ public class HisDocLayoutComp {
 
             // Evaluating...
             logger.info("Evaluating...");
-            Results results = new LineSegmentationEvaluator().evaluate(image, output, truth, threshold, comments);
+            Results results = new LineSegmentationEvaluator().evaluate(output, truth, threshold);
 
 
             // Output

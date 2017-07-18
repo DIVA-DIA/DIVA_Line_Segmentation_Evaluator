@@ -8,7 +8,6 @@ package ch.unifr.experimenter.evaluation;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -42,18 +41,15 @@ public class LineSegmentationEvaluator {
     /**
      * Evaluate output data with respect to ground truth
      *
-     *
-     * @param image
      * @param methodOutput the polygons output by the method to evaluate
      * @param groundTruth  the ground truth polygons
-     * @param threshold
-     *@param comments @return Results object
+     * @return Results object
      */
-    public Results evaluate(BufferedImage image, List<Polygon> methodOutput, List<Polygon> groundTruth, double threshold, boolean comments) {
+    public Results evaluate(List<Polygon> methodOutput, List<Polygon> groundTruth, double threshold) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
-        Map<Polygon, Polygon> matching = getMatchingPolygons(methodOutput, groundTruth, comments);
+        Map<Polygon, Polygon> matching = getMatchingPolygons(methodOutput, groundTruth);
         logger.debug("matching.size " + matching.size());
 
         // Line count
@@ -89,46 +85,34 @@ public class LineSegmentationEvaluator {
             int ymax = (int) Math.max(rmo.getMaxY(), rgt.getMaxY());
 
             // for every pixel of the bounding box
-            for(int i = xmin; i <= xmax; i++) {
-                for(int j = ymin; j < ymax; j++) {
+            for (int i = xmin; i <= xmax; i++) {
+                for (int j = ymin; j < ymax; j++) {
 
-                    // ignore boundary pixels
-                    int boundary = (image.getRGB(i,j) >> 23) & 0x1;
-                    if (boundary == 1) {
-                        continue;
-                    }
-
-                    // ignore background pixels
-                    int background = (image.getRGB(i,j) >> 0) & 0x1;
-                    if (background == 1) {
-                        continue;
-                    }
-
-                    boolean isInRmo = rmo.contains(i, j);
-                    boolean isInRgt = rgt.contains(i, j);
+                    boolean isInPmo = pmo.contains(i, j);
+                    boolean isInPgt = pgt.contains(i, j);
 
                     // check if match
-                    if (isInRmo && isInRgt) {
+                    if (isInPmo && isInPgt) {
                         matchingPixels++;
                     }
 
                     // check if missed
-                    if (!isInRmo && isInRgt) {
+                    if (!isInPmo && isInPgt) {
                         missedPixels++;
                     }
 
                     // check if wrongly detected
-                    if (isInRmo && !isInRgt) {
+                    if (isInPmo && !isInPgt) {
                         falsePixels++;
                     }
 
                     // compute pmo size
-                    if (isInRmo) {
+                    if (isInPmo) {
                         outputPixels++;
                     }
 
                     // compute pgt size
-                    if (isInRgt) {
+                    if (isInPgt) {
                         truthPixels++;
                     }
                 }
@@ -141,7 +125,7 @@ public class LineSegmentationEvaluator {
                 iu = matchingPixels / union;
             }
             logger.trace("IU = " + iu);
-            if (iu > threshold) {
+            if (iu > threshold /*0.75*/) {
                 nbLinesCorrects++;
 
                 matchingSum += matchingPixels;
@@ -166,28 +150,34 @@ public class LineSegmentationEvaluator {
         logger.debug("matchingSum + falseSum = " + (matchingSum + falseSum));
 
         // Printing
-        logger.info("Precision = " + matchingSum / (double)outputSum);
-        logger.info("Recall = " + matchingSum / (double)truthSum);
-        logger.info("True Positive = " + matchingSum / (double)truthSum);
-        logger.info("False Positive = " + falseSum / (double)outputSum);
-        logger.info("False Negative = " + missedSum / (double)truthSum);
+        double precision = Double.isNaN(matchingSum / (double) outputSum) ? 0 : ((matchingSum) / (double) outputSum);
+        double recall = Double.isNaN(matchingSum / (double) truthSum) ? 0 : (matchingSum / (double) truthSum);
+        double truePositive = Double.isNaN(matchingSum / (double) truthSum) ? 0 : (matchingSum / (double) truthSum);
+        double falsePositive = Double.isNaN(falseSum / (double) outputSum) ? 0 : (falseSum / (double) outputSum);
+        double falseNegative = Double.isNaN(missedSum / (double) truthSum) ? 0 : (missedSum / (double) truthSum);
+        double iu = Double.isNaN(matchingSum / unionSum) ? 0 : (matchingSum / unionSum);
+        logger.info("Precision = " + precision);
+        logger.info("Recall = " + recall);
+        logger.info("True Positive = " + truePositive);
+        logger.info("False Positive = " + falsePositive);
+        logger.info("False Negative = " + falseNegative);
 //        logger.info("True Negative = " + (pageSum - outputSum) / (double)(pageSum - truthSum));
 
         logger.info("intersection = " + matchingSum);
-        logger.info("union = " + unionSum);
-        logger.info("IU = " + (matchingSum / unionSum));
+        logger.info("union = " + (int) unionSum);
+        logger.info("IU = " + iu );
 
         // Storing results
         Results results = new Results();
         results.put(LINES_NB_TRUTH, groundTruth.size());
         results.put(LINES_NB_FOUND, nbLinesCorrects);
-        results.put(LINES_AVG_IU, matchingSum / unionSum);
+        results.put(LINES_AVG_IU, iu);
 
-        results.put(Results.PRECISION, matchingSum / (double)outputSum);
-        results.put(Results.RECALL, matchingSum / (double)truthSum);
-        results.put(Results.TRUEPOSITIVE, matchingSum / (double)truthSum);
-        results.put(Results.FALSEPOSITIVE, falseSum / (double)outputSum);
-        results.put(Results.FALSENEGATIVE, missedSum / (double)truthSum);
+        results.put(Results.PRECISION, precision);
+        results.put(Results.RECALL, recall);
+        results.put(Results.TRUEPOSITIVE, truePositive);
+        results.put(Results.FALSEPOSITIVE, falsePositive);
+        results.put(Results.FALSENEGATIVE, falseNegative);
 //        results.put(Results.TRUENEGATIVE, (pageSum - outputSum) / (double)(pageSum - truthSum));
 
         logger.trace(results.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(results)));
@@ -199,10 +189,9 @@ public class LineSegmentationEvaluator {
      *
      * @param methodOutput polygons given by the method
      * @param groundTruth  polygons in the ground truth
-     * @param comments
      * @return the matching polygons
      */
-    private Map<Polygon, Polygon> getMatchingPolygons(List<Polygon> methodOutput, List<Polygon> groundTruth, boolean comments) {
+    private Map<Polygon, Polygon> getMatchingPolygons(List<Polygon> methodOutput, List<Polygon> groundTruth) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         Map<Polygon, Polygon> matching = new HashMap<>();
@@ -240,8 +229,8 @@ public class LineSegmentationEvaluator {
 
                 // compute intersection area
                 int intersectingPixels = 0;
-                for(int i = xmin; i <= xmax; i++) {
-                    for(int j = ymin; j < ymax; j++) {
+                for (int i = xmin; i <= xmax; i++) {
+                    for (int j = ymin; j < ymax; j++) {
                         if (rmo.contains(i, j) && rgt.contains(i, j)) {
                             intersectingPixels++;
                         }
@@ -249,7 +238,7 @@ public class LineSegmentationEvaluator {
                 }
 
                 // add the matching possibility
-                possibilities.get(pgt).put(pmo, (double)intersectingPixels);
+                possibilities.get(pgt).put(pmo, (double) intersectingPixels);
                 possibilitiesCount++;
                 logger.trace("matching possibility: " + pgt + " * " + pmo + " = " + intersectingPixels);
             }
