@@ -5,9 +5,15 @@
 
 package ch.unifr.experimenter.evaluation;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.apache.log4j.Logger;
 
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -105,6 +111,41 @@ public class Results {
             logger.error(e.getMessage());
         }
 
+    }
+
+    public void writeToJson(String outputPath, String gtFilename){
+
+        JsonObject result = new JsonObject();
+        JsonArray output = new JsonArray();
+        for(Map.Entry<String, String> entry : results.entrySet()){
+            JsonObject content = new JsonObject();
+            content.add("name", new JsonPrimitive(entry.getKey().split("\\.")[1]));
+            content.add("value", new JsonPrimitive(Double.parseDouble(entry.getValue())));
+            content.add("mime-type", new JsonPrimitive("text/plain"));
+            JsonObject object = new JsonObject();
+            object.add("number", content);
+            output.add(object);
+
+        }
+
+        //gtFileName
+        JsonObject gtFilenameContent = new JsonObject();
+        gtFilenameContent.add("name", new JsonPrimitive("gtFilename"));
+        gtFilenameContent.add("value", new JsonPrimitive(gtFilename));
+        gtFilenameContent.add("mime-type", new JsonPrimitive("text/plain"));
+        JsonObject gtFilenameObject = new JsonObject();
+        gtFilenameObject.add("text", gtFilenameContent);
+        output.add(gtFilenameObject);
+
+        result.add("output", output);
+        PrintWriter writer = null;
+        try {
+            writer = new PrintWriter(outputPath, "UTF-8");
+        } catch (FileNotFoundException | UnsupportedEncodingException e) {
+            e.printStackTrace();
+        }
+        writer.print(result);
+        writer.close();
     }
 
 }
