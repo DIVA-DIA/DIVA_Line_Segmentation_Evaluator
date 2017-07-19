@@ -9,9 +9,14 @@ import ch.unifr.experimenter.database.ImageLinePageDataset;
 import ch.unifr.experimenter.evaluation.LineSegmentationEvaluator;
 import ch.unifr.experimenter.evaluation.Results;
 import org.apache.log4j.Logger;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.Namespace;
+import org.jdom2.input.SAXBuilder;
 
 import javax.imageio.ImageIO;
-import java.awt.Polygon;
+import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -81,10 +86,41 @@ public class HisDocLayoutComp {
             output = ImageLinePageDataset.readOutputDataFromFile(args[2], comments);
 
 
+            // Get main text area
+            Rectangle mainTextArea = null;
+            try {
+                Document xmlDocument = new SAXBuilder().build(new File(args[1]));
+                Element root = xmlDocument.getRootElement();
+                Namespace namespace = root.getNamespace();
+                Element page = root.getChild("Page", namespace);
+                Element region = page.getChild("TextRegion", namespace);
+                String coordString = region.getChild("Coords", namespace).getAttributeValue("points");
+                String[] coords = coordString.split(" ");
+                int[] coordsX = {(int) Double.parseDouble(coords[0].split(",")[0]),
+                        (int) Double.parseDouble(coords[1].split(",")[0]),
+                        (int) Double.parseDouble(coords[2].split(",")[0]),
+                        (int) Double.parseDouble(coords[3].split(",")[0])};
+                int xmin = Math.min(coordsX[0], Math.min(coordsX[1], Math.min(coordsX[2], coordsX[3])));
+                int xmax = Math.max(coordsX[0], Math.max(coordsX[1], Math.max(coordsX[2], coordsX[3])));
+                int[] coordsY = {(int) Double.parseDouble(coords[0].split(",")[1]),
+                        (int) Double.parseDouble(coords[1].split(",")[1]),
+                        (int) Double.parseDouble(coords[2].split(",")[1]),
+                        (int) Double.parseDouble(coords[3].split(",")[1])};
+                int ymin = Math.min(coordsY[0], Math.min(coordsY[1], Math.min(coordsY[2], coordsY[3])));
+                int ymax = Math.max(coordsY[0], Math.max(coordsY[1], Math.max(coordsY[2], coordsY[3])));
+                mainTextArea = new Rectangle(xmin, ymin, (xmax - xmin), (ymax - ymin));
+            } catch (JDOMException | IOException e) {
+                logger.error(e);
+                if (logger.isDebugEnabled()) {
+                    e.printStackTrace();
+                }
+            }
+
+
             // Evaluating...
             logger.info("Evaluating...");
             LineSegmentationEvaluator evaluator = new LineSegmentationEvaluator();
-            Results results = evaluator.evaluate(image, truth, output, threshold, comments);
+            Results results = evaluator.evaluate(image, truth, output, threshold, comments, mainTextArea);
 
 
             // Write evaluation image

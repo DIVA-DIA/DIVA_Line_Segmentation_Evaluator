@@ -33,9 +33,9 @@ public class LineSegmentationEvaluator {
     public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
     public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
     public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
-    public static final String LINES_NB_RECALL = "LineSegmentation.NbLinesRecall.Double";
-    public static final String LINES_NB_PRECISION = "LineSegmentation.NbLinesPrecision.Double";
-    public static final String LINES_NB_IU = "LineSegmentation.NbLinesIU.double";
+    public static final String LINES_NB_RECALL = "LineSegmentation.LinesRecall.Double";
+    public static final String LINES_NB_PRECISION = "LineSegmentation.LinesPrecision.Double";
+    public static final String LINES_NB_IU = "LineSegmentation.LinesIU.double";
     public static final String LINES_PIXEL_IU = "LineSegmentation.PixelIU.double";
 
     /**
@@ -58,6 +58,21 @@ public class LineSegmentationEvaluator {
      * @return Results object
      */
     public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> methodOutput, double threshold, boolean comments) {
+        logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
+        return evaluate(groundTruthImage, groundTruth, methodOutput, threshold, comments, null);
+    }
+
+    /**
+     * Evaluate output data with respect to ground truth
+     *
+     * @param groundTruthImage         the ground truth groundTruthImage
+     * @param methodOutput  the polygons output by the method to evaluate
+     * @param groundTruth   the ground truth polygons
+     * @param threshold     the IU threshold for line matching
+     * @param mainTextArea  the area of the main text
+     * @return Results object
+     */
+    public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> methodOutput, double threshold, boolean comments, Rectangle mainTextArea) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
@@ -103,15 +118,20 @@ public class LineSegmentationEvaluator {
             for(int i = xmin; i <= xmax; i++) {
                 for(int j = ymin; j < ymax; j++) {
 
+                    // ignore boundary pixels
+                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
+                    if (boundary == 1) {
+                        continue;
+                    }
+
                     // ignore background pixels
                     int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
                     if (background == 1) {
                         continue;
                     }
 
-                    // ignore boundary pixels
-                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
-                    if (boundary == 1) {
+                    // ignore if out of main text area
+                    if (mainTextArea != null && !mainTextArea.contains(i, j)) {
                         continue;
                     }
 
@@ -204,40 +224,19 @@ public class LineSegmentationEvaluator {
         logger.trace("matchingSum + falseSum = " + (matchingSum + falseSum));
 
         // Line scores
-        double lineRecall = 0;
-        double linePrecision = 0;
-        double lineIU = 0;
-        if (groundTruth.size() > 0) {
-            lineRecall = nbLinesCorrects / (double)groundTruth.size();
-        }
-        if (methodOutput.size() > 0) {
-            linePrecision = nbLinesCorrects / (double)methodOutput.size();
-        }
+        double lineRecall = nbLinesCorrects / (double) groundTruth.size();
+        double linePrecision = nbLinesCorrects / (double) methodOutput.size();
         int lineUnion = groundTruth.size() + methodOutput.size() - nbLinesCorrects;
-        if (lineUnion > 0) {
-            lineIU = nbLinesCorrects / (double)lineUnion;
-        }
+        double lineIU = nbLinesCorrects / (double) lineUnion;
 
         // Pixel scores
-        double precision = 0;
-        double recall = 0;
-        double truePositive = 0;
-        double falsePositive = 0;
-        double falseNegative = 0;
-        double avgPixelIU = 0;
-        if (outputSum > 0) {
-            precision = matchingSum / (double)outputSum;
-            falsePositive = falseSum / (double)outputSum;
-        }
-        if ( truthSum > 0) {
-            recall = matchingSum / (double)truthSum;
-            truePositive = matchingSum / (double)truthSum;
-            falseNegative =  missedSum / (double)truthSum;
-        }
+        double precision = matchingSum / (double) outputSum;
+        double recall = matchingSum / (double) truthSum;
+        double truePositive = matchingSum / (double) truthSum;
+        double falsePositive = falseSum / (double) outputSum;
+        double falseNegative = missedSum / (double) truthSum;
         int unionSum = matchingSum + missedSum + falseSum;
-        if (unionSum > 0) {
-            avgPixelIU = matchingSum / (double)unionSum;
-        }
+        double avgPixelIU = matchingSum / (double) unionSum;
 
         // Logging
         logger.info("line IU = " + lineIU);
