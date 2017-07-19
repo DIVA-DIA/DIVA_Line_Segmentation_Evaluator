@@ -8,6 +8,7 @@ package ch.unifr.experimenter.evaluation;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
+import java.awt.image.BufferedImage;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -18,7 +19,7 @@ import java.util.Map;
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
  * @date 26.09.16
  * @brief Line segmentation evaluator
- * Find all possible matching between Grount Truth (GT) polygons and
+ * Find all possible matching between Ground Truth (GT) polygons and
  * Method Output (MO) polygons and compute the matching possibilities areas.
  * Final matching is done starting from the biggest matching possibility area
  * and continuing until all polygons are match or until no matching possibility remains.
@@ -29,9 +30,13 @@ public class LineSegmentationEvaluator {
     /**
      * Keys for the different measures
      */
-    public static final String LINES_NB_FOUND = "LineSegmentation.NbLinesFound.int";
+    public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
+    public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
     public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
-    public static final String LINES_AVG_IU = "LineSegmentation.IntersectionOverUnion.double";
+    public static final String LINES_NB_RECALL = "LineSegmentation.LinesRecall.Double";
+    public static final String LINES_NB_PRECISION = "LineSegmentation.LinesPrecision.Double";
+    public static final String LINES_NB_IU = "LineSegmentation.LinesIU.double";
+    public static final String LINES_PIXEL_IU = "LineSegmentation.PixelIU.double";
 
     /**
      * Log4j logger
@@ -40,12 +45,28 @@ public class LineSegmentationEvaluator {
 
     /**
      * Evaluate output data with respect to ground truth
+     * (STANDARD VERSION)
      *
      * @param methodOutput the polygons output by the method to evaluate
      * @param groundTruth  the ground truth polygons
      * @return Results object
      */
     public Results evaluate(List<Polygon> methodOutput, List<Polygon> groundTruth, double threshold) {
+        return evaluate(methodOutput, groundTruth, null, null, threshold);
+    }
+
+    /**
+     * Evaluate output data with respect to ground truth
+     * (HISDOC-LAYOUT-COMP VERSION)
+     * >> TAKES INTO ACCOUNT THE PIXEL LEVEL GROUND TRUTH <<
+     *
+     * @param methodOutput     the polygons output by the method to evaluate
+     * @param groundTruth      the ground truth polygons
+     * @param groundTruthImage the pixel level ground truth (null if none)
+     * @param mainTextArea
+     * @return Results object
+     */
+    public Results evaluate(List<Polygon> methodOutput, List<Polygon> groundTruth, BufferedImage groundTruthImage, Rectangle mainTextArea, double threshold) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
@@ -62,12 +83,14 @@ public class LineSegmentationEvaluator {
         int outputSum = 0;
         int truthSum = 0;
 
+        boolean isInPmo;
+        boolean isInPgt;
+
         // for every polygon MO (from Method Output)
         for (Polygon pmo : matching.keySet()) {
 
             // get the matched polygon GT (from Ground truth)
             Polygon pgt = matching.get(pmo);
-            logger.trace("evaluation matching " + pgt + " * " + pmo);
 
             // Pixels counts
             int matchingPixels = 0;
@@ -85,11 +108,30 @@ public class LineSegmentationEvaluator {
             int ymax = (int) Math.max(rmo.getMaxY(), rgt.getMaxY());
 
             // for every pixel of the bounding box
-            for (int i = xmin; i <= xmax; i++) {
-                for (int j = ymin; j < ymax; j++) {
+            for(int i = xmin; i <= xmax; i++) {
+                for(int j = ymin; j < ymax; j++) {
 
-                    boolean isInPmo = pmo.contains(i, j);
-                    boolean isInPgt = pgt.contains(i, j);
+                    // FOR THE HISDOC-LAYOUT-COMP: IGNORE BOUNDARIES AND BACKGROUND
+                    if (groundTruthImage != null) {
+                        // ignore boundary pixels
+                        int boundary = (groundTruthImage.getRGB(i, j) >> 23) & 0x1;
+                        if (boundary == 1) {
+                            continue;
+                        }
+                        // ignore background pixels
+                        int background = (groundTruthImage.getRGB(i, j) >> 0) & 0x1;
+                        if (background == 1) {
+                            continue;
+                        }
+                        // ignore if out of main text area
+                        if (mainTextArea != null && !mainTextArea.contains(i, j)) {
+                            continue;
+                        }
+                    }
+                    // END FOR THE HISDOC-LAYOUT-COMP
+
+                    isInPmo = pmo.contains(i, j);
+                    isInPgt = pgt.contains(i, j);
 
                     // check if match
                     if (isInPmo && isInPgt) {
@@ -125,7 +167,7 @@ public class LineSegmentationEvaluator {
                 iu = matchingPixels / union;
             }
             logger.trace("IU = " + iu);
-            if (iu > threshold /*0.75*/) {
+            if (iu > threshold) {
                 nbLinesCorrects++;
 
                 matchingSum += matchingPixels;
@@ -133,46 +175,57 @@ public class LineSegmentationEvaluator {
                 falseSum += falsePixels;
                 outputSum += outputPixels;
                 truthSum += truthPixels;
+            } else {
+                logger.debug("line skipped, IU below threshold: " + iu);
             }
         }
 
-        double unionSum = matchingSum + missedSum + falseSum;
-
         // Debug printing
-        logger.debug("truthSum = " + truthSum);
-        logger.debug("outputSum = " + outputSum);
+        logger.trace("truthSum = " + truthSum);
+        logger.trace("outputSum = " + outputSum);
 
-        logger.debug("matchingSum = " + matchingSum);
-        logger.debug("falseSum = " + falseSum);
-        logger.debug("missedSum = " + missedSum);
+        logger.trace("matchingSum = " + matchingSum);
+        logger.trace("falseSum = " + falseSum);
+        logger.trace("missedSum = " + missedSum);
 
-        logger.debug("matchingSum + missedSum = " + (matchingSum + missedSum));
-        logger.debug("matchingSum + falseSum = " + (matchingSum + falseSum));
+        logger.trace("matchingSum + missedSum = " + (matchingSum + missedSum));
+        logger.trace("matchingSum + falseSum = " + (matchingSum + falseSum));
 
-        // Printing
-        double precision = Double.isNaN(matchingSum / (double) outputSum) ? 0 : ((matchingSum) / (double) outputSum);
-        double recall = Double.isNaN(matchingSum / (double) truthSum) ? 0 : (matchingSum / (double) truthSum);
-        double truePositive = Double.isNaN(matchingSum / (double) truthSum) ? 0 : (matchingSum / (double) truthSum);
-        double falsePositive = Double.isNaN(falseSum / (double) outputSum) ? 0 : (falseSum / (double) outputSum);
-        double falseNegative = Double.isNaN(missedSum / (double) truthSum) ? 0 : (missedSum / (double) truthSum);
-        double iu = Double.isNaN(matchingSum / unionSum) ? 0 : (matchingSum / unionSum);
-        logger.info("Precision = " + precision);
-        logger.info("Recall = " + recall);
-        logger.info("True Positive = " + truePositive);
-        logger.info("False Positive = " + falsePositive);
-        logger.info("False Negative = " + falseNegative);
-//        logger.info("True Negative = " + (pageSum - outputSum) / (double)(pageSum - truthSum));
+        // Line scores
+        double lineRecall = Double.isNaN(nbLinesCorrects / (double) groundTruth.size()) ? 0 : nbLinesCorrects / (double) groundTruth.size();
+        double linePrecision = Double.isNaN(nbLinesCorrects / (double) methodOutput.size()) ? 0 : nbLinesCorrects / (double) methodOutput.size();
+        int lineUnion = Double.isNaN(groundTruth.size() + methodOutput.size() - nbLinesCorrects) ? 0 : groundTruth.size() + methodOutput.size() - nbLinesCorrects;
+        double lineIU = Double.isNaN(nbLinesCorrects / (double) lineUnion) ? 0 : nbLinesCorrects / (double) lineUnion;
 
-        logger.info("intersection = " + matchingSum);
-        logger.info("union = " + (int) unionSum);
-        logger.info("IU = " + iu );
+        // Pixel scores
+        double precision = Double.isNaN(matchingSum / (double) outputSum) ? 0 : matchingSum / (double) outputSum;
+        double recall = Double.isNaN(matchingSum / (double) truthSum) ? 0 : matchingSum / (double) truthSum;
+        double truePositive = Double.isNaN(matchingSum / (double) truthSum) ? 0 : matchingSum / (double) truthSum;
+        double falsePositive = Double.isNaN(falseSum / (double) outputSum) ? 0 : falseSum / (double) outputSum;
+        double falseNegative = Double.isNaN(missedSum / (double) truthSum) ? 0 : missedSum / (double) truthSum;
+        int unionSum = Double.isNaN(matchingSum + missedSum + falseSum) ? 0 : matchingSum + missedSum + falseSum;
+        double avgPixelIU = Double.isNaN(matchingSum / (double) unionSum) ? 0 : matchingSum / (double) unionSum;
 
-        // Storing results
+        // Logging
+        logger.debug("line IU = " + lineIU);
+        logger.debug("line precision = " + linePrecision);
+        logger.debug("line recall = " + lineRecall);
+        logger.debug("pixel IU = " + avgPixelIU);
+        logger.debug("pixel precision = " + precision);
+        logger.debug("pixel recall = " + recall);
+//        logger.debug("True Negative = " + (pageSum - outputSum) / (double)(pageSum - truthSum));
+
+        // Storing line results
         Results results = new Results();
         results.put(LINES_NB_TRUTH, groundTruth.size());
-        results.put(LINES_NB_FOUND, nbLinesCorrects);
-        results.put(LINES_AVG_IU, iu);
+        results.put(LINES_NB_PROPOSED, methodOutput.size());
+        results.put(LINES_NB_CORRECT, nbLinesCorrects);
+        results.put(LINES_NB_RECALL, lineRecall);
+        results.put(LINES_NB_PRECISION, linePrecision);
+        results.put(LINES_NB_IU, lineIU);
 
+        // Storing pixel results
+        results.put(LINES_PIXEL_IU, avgPixelIU);
         results.put(Results.PRECISION, precision);
         results.put(Results.RECALL, recall);
         results.put(Results.TRUEPOSITIVE, truePositive);
@@ -229,8 +282,8 @@ public class LineSegmentationEvaluator {
 
                 // compute intersection area
                 int intersectingPixels = 0;
-                for (int i = xmin; i <= xmax; i++) {
-                    for (int j = ymin; j < ymax; j++) {
+                for(int i = xmin; i <= xmax; i++) {
+                    for(int j = ymin; j < ymax; j++) {
                         if (rmo.contains(i, j) && rgt.contains(i, j)) {
                             intersectingPixels++;
                         }
@@ -238,7 +291,7 @@ public class LineSegmentationEvaluator {
                 }
 
                 // add the matching possibility
-                possibilities.get(pgt).put(pmo, (double) intersectingPixels);
+                possibilities.get(pgt).put(pmo, (double)intersectingPixels);
                 possibilitiesCount++;
                 logger.trace("matching possibility: " + pgt + " * " + pmo + " = " + intersectingPixels);
             }
@@ -275,17 +328,11 @@ public class LineSegmentationEvaluator {
                 logger.debug("match " + maxArea / 1000);
                 matching.put(polygonMO, polygonGT);
             } else {
-                logger.warn("matching failed…");
+                logger.debug("matching failed…");
             }
         }
 
-        // check if no polygon is matched twice
-        if (matching.keySet().size() != matching.size()
-                || matching.values().size() != matching.size()) {
-            logger.warn("ERROR: some polygons are matched twice…");
-        }
-
-        logger.info("found " + matching.size() + " matches");
+        logger.debug("found " + matching.size() + " matches");
         logger.trace(matching.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(matching)));
         return matching;
     }

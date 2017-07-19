@@ -84,10 +84,10 @@ public class HisDocLayoutComp {
             }
 
             logger.info("Loading page ground truth from " + args[1]);
-            truth = ImageLinePageDataset.readOutputDataFromFile(args[1], comments);
+            truth = ImageLinePageDataset.readOutputDataFromFile(args[1]);
 
             logger.info("Loading method output from " + args[2]);
-            output = ImageLinePageDataset.readOutputDataFromFile(args[2], comments);
+            output = ImageLinePageDataset.readOutputDataFromFile(args[2]);
 
 
             // Evaluating...
