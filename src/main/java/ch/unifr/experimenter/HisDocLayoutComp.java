@@ -64,11 +64,17 @@ public class HisDocLayoutComp {
         xp.setRequired(true);
         options.addOption(xp);
 
-        // Output path for the CSV file (optional)
-        options.addOption(new Option("o", "outputPath", true, "Output path, for the CSV file "));
+        // Output path, relative to prediction input path (optional)
+        options.addOption(new Option("out", "outputPath", true, "Output path, relative to prediction input path"));
+
+        // Save CSV file (optional)
+        options.addOption(new Option("csv", true, "(Flag) Save the CSV file"));
 
         // Matching threshold (optional)
         options.addOption(new Option("mt", "matchingThreshold", true, "Matching threshold for detected lines"));
+
+        // Overlap with original image (optional)
+        options.addOption(new Option("overlap", true, "Overlap original image with the visualized results"));
 
         // Account for comments (optional)
         options.addOption(new Option("c", "comments", false, "(Flag) Take comments into account"));
@@ -90,11 +96,27 @@ public class HisDocLayoutComp {
         String xmlGtPath = cmd.getOptionValue("xmlGroundTruth").replace("/", File.separator);
         String xmlPredictionPath = cmd.getOptionValue("xmlPrediction").replace("/", File.separator);
 
+        // Set the path of the prediction as starting output path
+        String outputPath = xmlPredictionPath.substring(0,xmlPredictionPath.lastIndexOf(File.separator)+1);
+
+        // Add any relative path from there (if specified)
+        if(cmd.hasOption("outputPath")){
+            outputPath += cmd.getOptionValue("outputPath").replace("/", File.separator);
+        }
+
+        // Make sure last char is a file separator
+        if (outputPath.lastIndexOf(File.separator)+1 != outputPath.length()) {
+            outputPath += File.separator;
+        }
+
+        // Add the prediction file name without extension
+        outputPath += xmlPredictionPath.substring(xmlPredictionPath.lastIndexOf(File.separator) + 1, xmlPredictionPath.lastIndexOf('.'));
+
         // Assign optional parameters
-        String outputPath = "";
-        if(cmd.hasOption("outputPath")) {
-            outputPath = cmd.getOptionValue("outputPath").replace("/", File.separator);
-            logger.info("Output path is: " + outputPath);
+        String csv = "";
+        if(cmd.hasOption("csv")) {
+            csv = cmd.getOptionValue("csv").replace("/", File.separator);
+            logger.info("Path the csv file is: " + csv);
         }
 
         double threshold = 0.75;
@@ -141,20 +163,28 @@ public class HisDocLayoutComp {
         results.put(Results.FILENAME,xmlPredictionPath.substring(xmlPredictionPath.lastIndexOf(File.separator) + 1, xmlPredictionPath.lastIndexOf('.')));
 
         // Write evaluation image
-        String evalImagePath = outputPath.substring(0, outputPath.lastIndexOf('.'));
-        evalImagePath += ".visualization";
-        evalImagePath += imageGtPath.substring(imageGtPath.lastIndexOf('.'));
+        BufferedImage visualization = evaluator.getEvalImage();
         try {
-            ImageIO.write(evaluator.getEvalImage(), evalImagePath.substring(evalImagePath.lastIndexOf('.') + 1), new File(evalImagePath));
-            logger.info("Writing evaluation image in " + evalImagePath);
+            ImageIO.write(visualization, "png", new File(outputPath+"-visualization.png"));
+            logger.info("Writing visualization image in " + outputPath);
         } catch (IOException e) {
             logger.error(e);
+        }
+
+        // If desired, overlap the original image with the visualized result
+        if(cmd.hasOption("overlap")){
+            try {
+                ImageIO.write(evaluator.overlapEvaluation(visualization, ImageIO.read(new File(cmd.getOptionValue("overlap")))), "png", new File(outputPath+"-overlap.png"));
+                logger.info("Writing overlap image in " + outputPath);
+            } catch (IOException e) {
+                logger.error(e);
+            }
         }
 
         // Write the results in a CSV file, if outPath is provided
         if (!outputPath.isEmpty()) {
             logger.info("Writing results in " + outputPath);
-            results.writeToCSV(outputPath);
+            results.writeToCSV(outputPath + "results");
         }
     }
 
