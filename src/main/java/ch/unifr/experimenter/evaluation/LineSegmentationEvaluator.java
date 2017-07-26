@@ -5,44 +5,36 @@
 
 package ch.unifr.experimenter.evaluation;
 
+import com.sun.org.apache.regexp.internal.RE;
+import javafx.scene.layout.GridPane;
+import javafx.util.Pair;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
+import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
-import java.util.HashMap;
+import java.util.*;
 import java.util.List;
-import java.util.Map;
 
 /**
  * LineSegmentationEvaluator class of the Experimenter project
  *
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
- * @date 26.09.16
+ * @author Michele Alberti <michele.alberti@unifr.ch>
+ * @date 24.07.2017
  * @brief Line segmentation evaluator
  * Find all possible matching between Grount Truth (GT) polygons and
  * Method Output (MO) polygons and compute the matching possibilities areas.
  * Final matching is done starting from the biggest matching possibility area
  * and continuing until all polygons are match or until no matching possibility remains.
  */
-@SuppressWarnings({"unused", "WeakerAccess"})
+@SuppressWarnings({"WeakerAccess"})
 public class LineSegmentationEvaluator {
-
-    /**
-     * Keys for the different measures
-     */
-    public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
-    public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
-    public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
-    public static final String LINES_NB_RECALL = "LineSegmentation.LinesRecall.Double";
-    public static final String LINES_NB_PRECISION = "LineSegmentation.LinesPrecision.Double";
-    public static final String LINES_NB_IU = "LineSegmentation.LinesIU.double";
-    public static final String LINES_PIXEL_IU = "LineSegmentation.PixelIU.double";
 
     /**
      * Log4j logger
      */
     protected static final Logger logger = Logger.getLogger(LineSegmentationEvaluator.class);
-
     /**
      * Evaluation image
      */
@@ -52,330 +44,390 @@ public class LineSegmentationEvaluator {
      * Evaluate output data with respect to ground truth
      *
      * @param groundTruthImage         the ground truth groundTruthImage
-     * @param methodOutput  the polygons output by the method to evaluate
+     * @param prediction  the polygons output by the method to evaluate
      * @param groundTruth   the ground truth polygons
      * @param threshold     the IU threshold for line matching
      * @return Results object
      */
-    public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> methodOutput, double threshold, boolean comments) {
-        logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
-        return evaluate(groundTruthImage, groundTruth, methodOutput, threshold, comments, null);
-    }
-
-    /**
-     * Evaluate output data with respect to ground truth
-     *
-     * @param groundTruthImage         the ground truth groundTruthImage
-     * @param methodOutput  the polygons output by the method to evaluate
-     * @param groundTruth   the ground truth polygons
-     * @param threshold     the IU threshold for line matching
-     * @param mainTextArea  the area of the main text
-     * @return Results object
-     */
-    public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> methodOutput, double threshold, boolean comments, Rectangle mainTextArea) {
+    public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> prediction, double threshold) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
-        Map<Polygon, Polygon> matching = getMatchingPolygons(methodOutput, groundTruth, comments);
-        logger.debug("matching.size " + matching.size());
+        List<Pair<Polygon,Polygon>> matching = getMatchingPolygons(groundTruthImage, groundTruth, prediction);
 
         // Init evaluation image
         evalImage = new BufferedImage(groundTruthImage.getWidth(), groundTruthImage.getHeight(), BufferedImage.TYPE_INT_RGB);
 
-        // Line count
-        int nbLinesCorrects = 0;
+        // Lines count
+        int nbLinesCorrect = 0;
+        int nbLinesMissed = 0;
+        int nbLinesExtra = 0;
 
-        // Pixels counts
-        int matchingSum = 0;
-        int missedSum = 0;
-        int falseSum = 0;
-        int outputSum = 0;
-        int truthSum = 0;
+        // Pixels counts for the whole image
+        int TP = 0;
+        int FN = 0;
+        int FP = 0;
+        int nbPixelsPrediction = 0;
+        int nbPixelsGt = 0;
 
-        // for every polygon MO (from Method Output)
-        for (Polygon pmo : matching.keySet()) {
+        // For every match
+        for (Pair<Polygon,Polygon> match : matching) {
 
-            // get the matched polygon GT (from Ground truth)
-            Polygon pgt = matching.get(pmo);
-            logger.trace("evaluation matching " + pgt + " * " + pmo);
+            // Extract the predicted and ground truth polygons from the match pair
+            Polygon pp = match.getKey();
+            Polygon pgt = match.getValue();
 
-            // Pixels counts
-            int matchingPixels = 0;
-            int missedPixels = 0;
-            int falsePixels = 0;
-            int outputPixels = 0;
-            int truthPixels = 0;
+            logger.trace("evaluation matching " + pgt + " * " + pp);
 
-            // find the bounding box of both polygons
-            Rectangle rmo = pmo.getBounds();
-            Rectangle rgt = pgt.getBounds();
-            int xmin = (int) Math.min(rmo.getMinX(), rgt.getMinX());
-            int xmax = (int) Math.max(rmo.getMaxX(), rgt.getMaxX());
-            int ymin = (int) Math.min(rmo.getMinY(), rgt.getMinY());
-            int ymax = (int) Math.max(rmo.getMaxY(), rgt.getMaxY());
+            // Pixels counts for the line (current match of polygons)
+            int lineTP = 0; // True positive pixels
+            int lineFN = 0; // False negative pixels
+            int lineFP = 0; // False positive pixels
+            int lineNbPixelsPrediction = 0;
+            int lineNbPixelsGt = 0;
 
-            // for every pixel of the bounding box
-            for(int i = xmin; i <= xmax; i++) {
-                for(int j = ymin; j < ymax; j++) {
+            // These lines are for deep MANUAL inspection only (especially for the visualization!)
+            //if(pp!=null && pgt!=null)continue; // Skip all correctly matched lines
+            //if(pp==null || pgt==null)continue; // Skip all the extra and missed lines
 
-                    // ignore boundary pixels
-                    int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
-                    if (boundary == 1) {
+            /* Find the bounding box of both polygons, i.e the bounding box of the union
+             * In case one of the two polygons is null (because it was an extra o miss line)
+             * the union is exactly the non-null polygon.
+             */
+            Rectangle rp = (pp!=null) ? pp.getBounds(): pgt.getBounds();
+            Rectangle rgt = (pgt!=null) ? pgt.getBounds(): pp.getBounds();
+
+            // Find the union
+            Rectangle union = rgt.union(rp);
+
+            // For every pixel in the bounding box
+            for (int x = (int) union.getMinX(); x < union.getMaxX(); x++) {
+                for (int y = (int) union.getMinY(); y < union.getMaxY(); y++) {
+
+                    // Ignore boundary pixels
+                    if (((groundTruthImage.getRGB(x,y) >> 23) & 0x1) == 1) {
                         continue;
                     }
 
-                    // ignore background pixels
-                    int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
-                    if (background == 1) {
+                    // Ignore background pixels
+                    if ((groundTruthImage.getRGB(x, y) & 0x1) == 1) {
                         continue;
                     }
 
-                    // ignore if out of main text area
-                    if (mainTextArea != null && !mainTextArea.contains(i, j)) {
-                        continue;
+                    // Check the type of pixel: TP, FN, FP (it cannot be a TN here, we're iterating on the union.
+                    boolean isInPp = (pp != null) && pp.contains(x, y);
+                    boolean isInPgt = (pgt != null) && pgt.contains(x, y);
+
+                    if (isInPp && isInPgt) {           // Predicted correctly
+                        lineTP++;
+                    } else if (!isInPp && isInPgt) {   // Not predicted (but it should have been)
+                        lineFN++;
+                    } else if (isInPp && !isInPgt) {   // Predicted (but it should NOT have been)
+                        lineFP++;
                     }
 
-                    boolean isInPmo = pmo.contains(i, j);
-                    boolean isInPgt = pgt.contains(i, j);
-
-
-                    if (isInPmo && isInPgt) { // check if match
-                        matchingPixels++;
-                    } else if (!isInPmo && isInPgt) {  // check if missed
-                        missedPixels++;
-                    } else if (isInPmo && !isInPgt) { // check if wrongly detected
-                        falsePixels++;
+                    // Update pmo size
+                    if (isInPp) {
+                        lineNbPixelsPrediction++;
                     }
 
-                    // compute pmo size
-                    if (isInPmo) {
-                        outputPixels++;
-                    }
-
-                    // compute pgt size
+                    // Update pgt size
                     if (isInPgt) {
-                        truthPixels++;
+                        lineNbPixelsGt++;
                     }
+
+                    // Update visualization image
+                    /*
+                     * (0x007F00) GREEN:   Foreground predicted correctly
+                     * (0xFFFF00) YELLOW:  Foreground which belong two multiple lines (all cases)
+                     * (0xFF0000) RED:     Foreground does not belong to this line (False positive)
+                     * (0x00FFFF) BLUE:    Foreground that should have been in this (False negative)
+                     */
+                    // Draw only if it concerns this line
+                    if(isInPgt || isInPp) {
+                        int color = 0x0;                   // Black
+                        if (isInPp && isInPgt) {
+                            color = 0x007F00;              // Green
+                        } else if (isInPp && !isInPgt) {
+                            color = 0xFF0000;              // Red
+                        } else if (!isInPp && isInPgt) {
+                            color = 0x0088FF;              // Blue
+                        }
+
+                        // Get the current color of the visualization
+                        int current = evalImage.getRGB(x, y) & 0x00FFFFFF;
+                        // If its not black and its not the same with want to apply -> it must be yellow!
+                        if (current != 0 && current != color) {
+                            evalImage.setRGB(x, y, 0xFFFF00);    // Yellow
+                        } else {
+                            evalImage.setRGB(x, y, color);
+                        }
+                    }
+
                 }
             }
 
-            // Take matching into account if IU > threshold
-            double iu = 0;
-            double union = matchingPixels + missedPixels + falsePixels;
-            if (union > 0) {
-                iu = matchingPixels / union;
+
+
+            // Integrate values for this line into the global sum
+            TP += lineTP;
+            FN += lineFN;
+            FP += lineFP;
+            nbPixelsPrediction += lineNbPixelsPrediction;
+            nbPixelsGt += lineNbPixelsGt;
+
+            // Evaluate the line detection
+            // NOTE: a line can be considered as both miss and extra if the conditions are met!
+            double P = lineTP / (double) (lineTP+lineFP); // Precision
+            double R = lineTP / (double) (lineTP+lineFN); // Recall
+            logger.trace("P = " + P);
+            logger.trace("R = " + R);
+
+            // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
+            if(P < threshold) {
+                logger.debug("line considered as extra");
+                nbLinesExtra++;
             }
-            logger.trace("IU = " + iu);
 
-            if (iu > threshold) {
-                logger.trace("line detected");
-                nbLinesCorrects++;
+            // The line hit too few pixels which belong to the GT, hence is considered as a miss line
+            if(R < threshold) {
+                logger.debug("line considered as  missed");
+                nbLinesMissed++;
+            }
 
-                matchingSum += matchingPixels;
-                missedSum += missedPixels;
-                falseSum += falsePixels;
-                outputSum += outputPixels;
-                truthSum += truthPixels;
-
-                // update visualization image
-                // for every pixel of the bounding box
-                for(int i = xmin; i <= xmax; i++) {
-                    for(int j = ymin; j < ymax; j++) {
-
-                        // ignore background pixels
-                        int background = (groundTruthImage.getRGB(i,j) >> 0) & 0x1;
-                        if (background == 1) {
-                            continue;
-                        }
-
-                        // ignore boundary pixels
-                        int boundary = (groundTruthImage.getRGB(i,j) >> 23) & 0x1;
-                        if (boundary == 1) {
-                            evalImage.setRGB(i, j, Color.gray.getRGB());
-                            continue;
-                        }
-
-                        boolean isInPmo = pmo.contains(i, j);
-                        boolean isInPgt = pgt.contains(i, j);
-
-                        if (isInPmo && isInPgt) { // check if match
-                            evalImage.setRGB(i, j, Color.green.getRGB());
-                        } else if (!isInPmo && isInPgt) { // check if missed
-                            evalImage.setRGB(i, j, Color.blue.getRGB());
-                        } else if (isInPmo && !isInPgt) { // check if wrongly detected
-                            evalImage.setRGB(i, j, Color.red.getRGB());
-                        }
-                    }
-                }
+            // The line is considered as correctly detected
+            if(P >= threshold && R >= threshold) {
+                logger.trace("line considered as correctly detected");
+                nbLinesCorrect++;
             } else {
-                logger.debug("line skipped, IU below threshold: " + iu);
+                logger.debug("line skipped, P|R below threshold: P=" + P + ",R=" + R);
+            }
+
+            // Drawing polygon color
+            Color color = Color.WHITE;
+
+            // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
+            if(P < threshold) {
+                logger.debug("line considered as extra");
+                nbLinesExtra++;
+                color = Color.RED;
+            }
+
+            // The line hit too few pixels which belong to the GT, hence is considered as a miss line
+            if(R < threshold) {
+                logger.debug("line considered as  missed");
+                nbLinesMissed++;
+                color = Color.BLUE;
+            }
+
+            // The line is considered as correctly detected
+            if(P >= threshold && R >= threshold) {
+                logger.trace("line considered as correctly detected");
+                nbLinesCorrect++;
+                color = Color.GREEN;
+            } else {
+                logger.debug("line skipped, P|R below threshold: P=" + P + ",R=" + R);
+            }
+
+            // For coloring the polygon
+            if(P < threshold && R < threshold) {
+                color = Color.PINK;
+            }
+
+            // Draw the polygon on the visualization
+            if(pp!=null){
+                Graphics g = evalImage.getGraphics();
+                g.setColor(color);
+                g.drawPolygon(pp);
             }
         }
 
-        // Debug printing
-        logger.trace("truthSum = " + truthSum);
-        logger.trace("outputSum = " + outputSum);
-
-        logger.trace("matchingSum = " + matchingSum);
-        logger.trace("falseSum = " + falseSum);
-        logger.trace("missedSum = " + missedSum);
-
-        logger.trace("matchingSum + missedSum = " + (matchingSum + missedSum));
-        logger.trace("matchingSum + falseSum = " + (matchingSum + falseSum));
-
         // Line scores
-        double lineRecall = nbLinesCorrects / (double) groundTruth.size();
-        double linePrecision = nbLinesCorrects / (double) methodOutput.size();
-        int lineUnion = groundTruth.size() + methodOutput.size() - nbLinesCorrects;
-        double lineIU = nbLinesCorrects / (double) lineUnion;
+        double linePrecision = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesExtra);
+        double lineRecall = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesMissed);
+        double lineF1 = 2*linePrecision*lineRecall / (linePrecision+lineRecall);
+        double lineIU = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesMissed + nbLinesExtra);
 
         // Pixel scores
-        double precision = matchingSum / (double) outputSum;
-        double recall = matchingSum / (double) truthSum;
-        double truePositive = matchingSum / (double) truthSum;
-        double falsePositive = falseSum / (double) outputSum;
-        double falseNegative = missedSum / (double) truthSum;
-        int unionSum = matchingSum + missedSum + falseSum;
-        double avgPixelIU = matchingSum / (double) unionSum;
-
-        // Logging
-        logger.info("line IU = " + lineIU);
-        logger.trace("intersection = " + matchingSum);
-        logger.trace("union = " + unionSum);
-        logger.info("pixel IU = " + avgPixelIU);
-        logger.info("Precision = " + precision);
-        logger.info("Recall = " + recall);
-        logger.debug("True Positive = " + truePositive);
-        logger.debug("False Positive = " + falsePositive);
-        logger.debug("False Negative = " + falseNegative);
-//        logger.info("True Negative = " + (pageSum - outputSum) / (double)(pageSum - truthSum));
+        double pixelPrecision = TP / (double) (TP + FP);
+        double pixelRecall = TP / (double) (TP + FN);
+        double pixelF1 = 2*pixelPrecision*pixelRecall / (pixelPrecision+pixelRecall);
+        double pixelIU = TP / (double) (TP + FP + FN);
 
         // Storing line results
         Results results = new Results();
-        results.put(LINES_NB_TRUTH, groundTruth.size());
-        results.put(LINES_NB_PROPOSED, methodOutput.size());
-        results.put(LINES_NB_CORRECT, nbLinesCorrects);
-        results.put(LINES_NB_RECALL, lineRecall);
-        results.put(LINES_NB_PRECISION, linePrecision);
-        results.put(LINES_NB_IU, lineIU);
+
+        results.put(Results.LINES_NB_TRUTH, groundTruth.size());
+        results.put(Results.LINES_NB_PROPOSED, prediction.size());
+        results.put(Results.LINES_NB_CORRECT, nbLinesCorrect);
+
+        results.put(Results.LINES_IU, lineIU);
+        results.put(Results.LINES_IU, lineF1);
+        results.put(Results.LINES_RECALL, lineRecall);
+        results.put(Results.LINES_PRECISION, linePrecision);
 
         // Storing pixel results
-        results.put(LINES_PIXEL_IU, avgPixelIU);
-        results.put(Results.PRECISION, precision);
-        results.put(Results.RECALL, recall);
-        results.put(Results.TRUEPOSITIVE, truePositive);
-        results.put(Results.FALSEPOSITIVE, falsePositive);
-        results.put(Results.FALSENEGATIVE, falseNegative);
-//        results.put(Results.TRUENEGATIVE, (pageSum - outputSum) / (double)(pageSum - truthSum));
+        results.put(Results.PIXEL_IU, pixelIU);
+        results.put(Results.PIXEL_FMEASURE, pixelF1);
+        results.put(Results.PIXEL_PRECISION, pixelPrecision);
+        results.put(Results.PIXEL_RECALL, pixelRecall);
 
         logger.trace(results.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(results)));
+
+        // Logging
+        logger.debug("TP = " + TP);
+        logger.debug("FP = " + FP);
+        logger.debug("FN = " + FN);
+        logger.debug("GT size = " + groundTruth.size());
+        logger.debug("Prediction size = " + prediction.size());
+        logger.debug("nbPixelsPrediction = " + nbPixelsPrediction);
+        logger.debug("nbPixelsGt = " + nbPixelsGt);
+        logger.debug("nbLinesCorrect = " + nbLinesCorrect);
+        logger.debug("nbLinesExtra = " + nbLinesExtra);
+        logger.debug("nbLinesMissed = " + nbLinesMissed);
+        logger.debug("line IU = " + lineIU);
+        logger.debug("linePrecision = " + linePrecision);
+        logger.debug("lineRecall = " + lineRecall);
+        logger.debug("pixel IU = " + pixelIU);
+        logger.debug("pixelPrecision = " + pixelPrecision);
+        logger.debug("pixelRecall = " + pixelRecall);
+
         return results;
     }
 
     /**
-     * Find the matching polygons between the methodOutput and the groundTruth
+     * Find the best matching polygons between the prediction and the groundTruth
      *
-     * @param methodOutput polygons given by the method
+     * @param prediction polygons given by the method
      * @param groundTruth  polygons in the ground truth
-     * @param comments
      * @return the matching polygons
      */
-    private Map<Polygon, Polygon> getMatchingPolygons(List<Polygon> methodOutput, List<Polygon> groundTruth, boolean comments) {
+    private List<Pair<Polygon,Polygon>> getMatchingPolygons(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> prediction) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
-        Map<Polygon, Polygon> matching = new HashMap<>();
+        // Init the return value (the match)
+        List<Pair<Polygon,Polygon>> matching = new ArrayList<>();
+        Set<Polygon> matchedPolygons = new HashSet<>();
 
-        // Find all intersecting polygons
-        Map<Polygon, Map<Polygon, Double>> possibilities = new HashMap<>();
-        int possibilitiesCount = 0;
+        // Init the list of all possibilities
+        ArrayList<Possibility> possibilities = new ArrayList<>();
 
-        // for every GT polygon
+        /* Measure the score between each pair of polygons \in GT U P,
+         * where GT and P represent the set of polygons for the GT and the
+         * prediction respectively.
+         * The outcome is a list of maximal size |GT|X|P| where each element of
+         * the list is a triplet (Possibility.class) which stores a possible
+         * match between two polygons and their score (in this case the UI).
+         * Triplets with the trivial score 0 (no overlap between the bounds of
+         * the polygons) are omitted in the list.
+         */
+        // For every GT polygon
         for (Polygon pgt : groundTruth) {
+
+            // Find bounding box of GT
+            Rectangle rgt = pgt.getBounds();
             logger.trace("matching possibility for GT: " + pgt);
 
-            // for every MO polygon
-            //noinspection Convert2streamapi
-            for (Polygon pmo : methodOutput) {
+            // For every Prediction polygon
+            for (Polygon pp : prediction) {
 
-                // skip if no overlap
-                if (!pgt.getBounds().intersects(pmo.getBounds())) {
-                    logger.trace("no matching possibility of " + pgt + " with MO: " + pmo);
+                // Find bounding box of prediction
+                Rectangle rp = pp.getBounds();
+
+                // Skip if no overlap
+                if (!rgt.intersects(rp)) {
+                    logger.trace("no matching possibility of " + pgt + " with MO: " + pp);
                     continue;
                 }
 
-                // create map if first possibility with pgt
-                if (!possibilities.containsKey(pgt)) {
-                    possibilities.put(pgt, new HashMap<>());
-                }
+                // Find the union
+                Rectangle union = rgt.union(rp);
 
-                // find bounding box
-                Rectangle rmo = pmo.getBounds();
-                Rectangle rgt = pgt.getBounds();
-                int xmin = (int) Math.min(rmo.getMinX(), rgt.getMinX());
-                int xmax = (int) Math.max(rmo.getMaxX(), rgt.getMaxX());
-                int ymin = (int) Math.min(rmo.getMinY(), rgt.getMinY());
-                int ymax = (int) Math.max(rmo.getMaxY(), rgt.getMaxY());
-
-                // compute intersection area
+                // Iterate the union area looking for foreground pixels belonging to both polygons
                 int intersectingPixels = 0;
-                for(int i = xmin; i <= xmax; i++) {
-                    for(int j = ymin; j < ymax; j++) {
-                        if (rmo.contains(i, j) && rgt.contains(i, j)) {
+                int unionPixels = 0;
+                for (int x = (int) union.getMinX(); x < union.getMaxX(); x++) {
+                    for (int y = (int) union.getMinY(); y < union.getMaxY(); y++) {
+                        // Ignore boundary pixels
+                        if (((groundTruthImage.getRGB(x,y) >> 23) & 0x1) == 1) {
+                            continue;
+                        }
+
+                        // Ignore background pixels
+                        if ((groundTruthImage.getRGB(x, y) & 0x1) == 1) {
+                            continue;
+                        }
+
+                        // Check if pixels belong to polygons
+                        boolean isInPp = pp.contains(x, y);
+                        boolean isInPgt = pgt.contains(x, y);
+
+                        // If the pixel belongs to both the polygons
+                        if (isInPp && isInPgt) {
                             intersectingPixels++;
+                        }
+
+                        // If the pixel belongs any of the polygons
+                        if (isInPp || isInPgt) {
+                            unionPixels++;
                         }
                     }
                 }
 
-                // add the matching possibility
-                possibilities.get(pgt).put(pmo, (double)intersectingPixels);
-                possibilitiesCount++;
-                logger.trace("matching possibility: " + pgt + " * " + pmo + " = " + intersectingPixels);
-            }
-        }
-        logger.debug(possibilitiesCount + " possibilities");
-
-        // For 'possibilities' times
-        for (int i = possibilities.size(); i > 0; i--) {
-
-            // Select best matching first
-            // (biggest area of all matching for all polygons)
-            double maxArea = 0;
-            Polygon polygonGT = null;
-            Polygon polygonMO = null;
-
-            // for each gt polygon
-            for (Polygon pgt : possibilities.keySet()) {
-
-                // find best matching mo pgt
-                for (Polygon pmo : possibilities.get(pgt).keySet()) {
-
-                    if (!matching.containsValue(pgt)
-                            && !matching.containsKey(pmo)
-                            && possibilities.get(pgt).get(pmo) > maxArea) {
-                        maxArea = possibilities.get(pgt).get(pmo);
-                        polygonGT = pgt;
-                        polygonMO = pmo;
-                    }
+                // Omit trivial '0' results
+                if(intersectingPixels > 0) {
+                    // Add the matching possibility
+                    possibilities.add(new Possibility(pgt, pp, intersectingPixels/(double)unionPixels));
+                    logger.trace("matching possibility: " + pgt + " * " + pp + " = " + intersectingPixels/(double)unionPixels);
                 }
             }
-
-            // Add matching polygons
-            if ((polygonGT != null) && (polygonMO != null)) {
-                logger.debug("match " + maxArea / 1000);
-                matching.put(polygonMO, polygonGT);
-            } else {
-                logger.warn("matching failed…");
-            }
         }
+        logger.debug(possibilities.size() + " possibilities");
 
-        // check if no polygon is matched twice
-        if (matching.keySet().size() != matching.size()
-                || matching.values().size() != matching.size()) {
-            logger.warn("ERROR: some polygons are matched twice…");
+        /* Traverse the score-descending sorted list of Possibility and select
+         * the first available match for each polygon belonging to the Prediction set.
+         * This ensures that no polygons are matched twice and that each polygon
+         * belonging to P gets matched with is best (available) matching polygon in
+         * the GT, thus maximizing the total matching score in a deterministic way.
+         */
+        Collections.sort(possibilities);
+        for (Possibility p : possibilities){
+            // Take the next one free on the sorted list
+            if (!matchedPolygons.contains(p.p) && !matchedPolygons.contains(p.gt)){
+                // Add matching polygons
+                logger.debug("match " + p.score);
+                matching.add(new Pair<>(p.p,p.gt));
+                matchedPolygons.add(p.p);
+                matchedPolygons.add(p.gt);
+            }
         }
 
         logger.info("found " + matching.size() + " matches");
+
+        // Add all missing GT polygons (un-matched) by matching them will 'null'
+        for (Polygon pgt : groundTruth) {
+            if (!matchedPolygons.contains(pgt)){
+                logger.debug("missed line matched with null");
+                matching.add(new Pair<>(null,pgt));
+                matchedPolygons.add(pgt);
+            }
+        }
+        // Add all extra Prediction polygons (un-matched) by matching them will 'null'
+        for (Polygon pp : prediction) {
+            if (!matchedPolygons.contains(pp)){
+                logger.debug("extra line matched with null");
+                matching.add(new Pair<>(pp,null));
+                matchedPolygons.add(pp);
+            }
+        }
+
+        // Check that all polygons got eventually matched
+        if(matchedPolygons.size() != groundTruth.size() + prediction.size()){
+            logger.error("ERROR: some polygons have not been matched!");
+        }
+
         logger.trace(matching.getClass().getName() + "@" + Integer.toHexString(System.identityHashCode(matching)));
+
         return matching;
     }
 
@@ -387,4 +439,48 @@ public class LineSegmentationEvaluator {
         return evalImage;
     }
 
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    // PRIVATE
+    ///////////////////////////////////////////////////////////////////////////////////////////////
+    /**
+     * This class represent a triplet of two polygons (GT and prediction) and their
+     * matching score (typically the IU). It is used to represent a possible match between
+     * a GT polygon and a Prediction one.
+     */
+    private final class Possibility implements Comparable<Possibility>{
+        /**
+         * The polygon belonging to the GT
+         */
+        public final Polygon gt;
+        /**
+         * The polygon belonging to the prediction
+         */
+        public final Polygon p;
+        /**
+         * The matching score between the two (typically the IU of their bounds)
+         */
+        public final double score;
+
+        /**
+         * Build a Possibility (triplet)
+         * @param gt the gt polygon
+         * @param p the prediction polygon
+         * @param score their matching score
+         */
+        public Possibility(Polygon gt, Polygon p, double score) {
+            this.gt = gt;
+            this.p = p;
+            this.score = score;
+        }
+
+        /**
+         * Comparator on the score of possibilities
+         * @param p the possibility to comapre to
+         * @return standard Double.compare (-1,0,1)
+         */
+        @Override
+        public int compareTo(Possibility p) {
+            return Double.compare(p.score,score);
+        }
+    }
 }

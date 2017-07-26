@@ -5,52 +5,54 @@
 
 package ch.unifr.experimenter.evaluation;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import org.apache.log4j.Logger;
 
-import java.io.FileNotFoundException;
 import java.io.IOException;
-import java.io.PrintWriter;
-import java.io.UnsupportedEncodingException;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.*;
+import java.nio.file.StandardOpenOption;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * Results class of the Experimenter project
  *
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
- * @date 16.08.16
+ * @author Michele Alberti <michele.alberti@unifr.ch>
+ * @date 25.07.2017
  * @brief Store results in a map.
  */
-@SuppressWarnings("unused")
+@SuppressWarnings({"WeakerAccess"})
 public class Results {
-
-    /**
-     * Keys for the different measures
-     */
-    public static final String FILENAME = "Results.filename.String";
-    public static final String ACCURACY = "Results.Accuracy.Double";
-    public static final String PRECISION = "Results.Precision.Double";
-    public static final String RECALL = "Results.Recall.Double";
-    public static final String FMEASURE = "Results.FMeasure.Double";
-    public static final String TRUEPOSITIVE = "Results.TruePositive.double";
-    public static final String FALSEPOSITIVE = "Results.FalsePositive.double";
-    public static final String FALSENEGATIVE = "Results.FalseNegative.double";
-    public static final String TRUENEGATIVE = "Results.TrueNegative.double";
 
     /**
      * Log4j logger
      */
     private static final Logger logger = Logger.getLogger(Results.class);
-
     /**
      * The map storing all the measures and their associated values
      */
     private Map<String, String> results = new HashMap<>();
+    /**
+     * Keys for the different measures
+     */
+    public static final String FILENAME = "LineSegmentation.filename.String";
+
+    public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
+    public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
+    public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
+
+    public static final String LINES_IU = "LineSegmentation.LinesIU.double";
+    public static final String LINES_FMEASURE = "LineSegmentation.LinesFMeasure.double";
+    public static final String LINES_RECALL = "LineSegmentation.LinesRecall.Double";
+    public static final String LINES_PRECISION = "LineSegmentation.LinesPrecision.Double";
+
+    public static final String PIXEL_IU = "LineSegmentation.PixelIU.double";
+    public static final String PIXEL_FMEASURE = "LineSegmentation.PixelFMeasure.Double";
+    public static final String PIXEL_PRECISION = "LineSegmentation.PixelPrecision.Double";
+    public static final String PIXEL_RECALL = "LineSegmentation.PixelRecall.Double";
 
     /**
      * Set/update the value associated with the key
@@ -58,94 +60,35 @@ public class Results {
      * @param key   of the measure
      * @param value of the measure
      */
-    @SuppressWarnings("WeakerAccess")
     public void put(String key, Object value) {
         logger.trace("put(" + key + ") = " + value);
         results.put(key, value.toString());
     }
 
     /**
-     * Get the value associated with the key
-     *
-     * @param key the measure
-     * @return the value of the measure
-     */
-    public String get(String key) {
-        logger.trace("get(" + key + ") = " + results.get(key));
-        return results.get(key);
-    }
-
-    /**
-     * Get the measures set
-     *
-     * @return the measure set
-     */
-    public Set<String> keySet() {
-        logger.trace("keyset (" + results.keySet().size() + " elements)");
-        return results.keySet();
-    }
-
-    /**
-     * Write results as CSV file
-     *
+     * Write results as CSV file. If the file already exists it appends a new line only
      * @param outputPath the path for the CSV results file
      */
     public void writeToCSV(String outputPath) {
+        //TODO append if file exist and fix print order
         ArrayList<String> lines = new ArrayList<>();
 
-        String line1 = "";
+        StringBuilder s = new StringBuilder();
         String line2 = "";
         for (String key: results.keySet()) {
-            String k = key.substring(key.indexOf('.') + 1);
-            k = k.substring(0, k.indexOf('.'));
-            line1 += k + ",";
+            // Take the middle part of the key, which is the metric name
+            s.append(key.split("\\.")[1]).append(",");
             line2 += results.get(key) + ",";
         }
-        lines.add(line1);
+        lines.add(s.toString());
         lines.add(line2);
 
         try {
-            Files.write(Paths.get(outputPath), lines, Charset.forName("UTF-8"));
+           Files.write(Paths.get(outputPath), line2.getBytes(), StandardOpenOption.APPEND);
             logger.debug("wrote " + outputPath);
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
 
     }
-
-    public void writeToJson(String outputPath, String gtFilename){
-
-        JsonObject result = new JsonObject();
-        JsonArray output = new JsonArray();
-        for(Map.Entry<String, String> entry : results.entrySet()){
-            JsonObject content = new JsonObject();
-            content.add("name", new JsonPrimitive(entry.getKey().split("\\.")[1]));
-            content.add("value", new JsonPrimitive(Double.parseDouble(entry.getValue())));
-            content.add("mime-type", new JsonPrimitive("text/plain"));
-            JsonObject object = new JsonObject();
-            object.add("number", content);
-            output.add(object);
-
-        }
-
-        //gtFileName
-        JsonObject gtFilenameContent = new JsonObject();
-        gtFilenameContent.add("name", new JsonPrimitive("gtFilename"));
-        gtFilenameContent.add("value", new JsonPrimitive(gtFilename));
-        gtFilenameContent.add("mime-type", new JsonPrimitive("text/plain"));
-        JsonObject gtFilenameObject = new JsonObject();
-        gtFilenameObject.add("text", gtFilenameContent);
-        output.add(gtFilenameObject);
-
-        result.add("output", output);
-        PrintWriter writer = null;
-        try {
-            writer = new PrintWriter(outputPath, "UTF-8");
-        } catch (FileNotFoundException | UnsupportedEncodingException e) {
-            e.printStackTrace();
-        }
-        writer.print(result);
-        writer.close();
-    }
-
 }

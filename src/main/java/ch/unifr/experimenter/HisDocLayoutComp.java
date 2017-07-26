@@ -8,8 +8,8 @@ package ch.unifr.experimenter;
 import ch.unifr.experimenter.database.ImageLinePageDataset;
 import ch.unifr.experimenter.evaluation.LineSegmentationEvaluator;
 import ch.unifr.experimenter.evaluation.Results;
+import org.apache.commons.cli.*;
 import org.apache.log4j.Logger;
-import org.jdom2.Document;
 import org.jdom2.Element;
 import org.jdom2.JDOMException;
 import org.jdom2.Namespace;
@@ -20,13 +20,15 @@ import java.awt.*;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.util.Arrays;
 import java.util.List;
 
 /**
  * HisDocLayoutComp class of the ICDAR 2017 competition
  *
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
- * @date 16.08.16
+ * @author Michele Alberti <michele.alberti@unifr.ch>
+ * @date 25.07.2017
  * @brief The line segmentation evaluator main class
  */
 public class HisDocLayoutComp {
@@ -37,110 +39,168 @@ public class HisDocLayoutComp {
     private static final Logger logger = Logger.getLogger(HisDocLayoutComp.class);
 
     /**
-     * Experimenter function
-     * @param args no args required
+     * HisDoc Layout Competition Task-3(line segmentation) Evaluator
      */
     public static void main(String[] args) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
-        if (args.length < 3) {
-            logger.error("Usage: Evaluator image_gt.jpg page_gt.xml page_to_evaluate.xml [results.csv] [iu_matching_threshold] [take_comment_lines_boolean]"); // add evaluation image filename
-        } else {
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        // Parse parameters
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        Options options = new Options();
 
-            // Params
-            BufferedImage image = null;
-            List<Polygon> output = null;
-            List<Polygon> truth = null;
-            String outputPath = "";
-            double threshold = 0.75;
-            boolean comments = false;
+        // GT image
+        Option igt = new Option("igt", "imageGroundTruth", true, "Ground Truth image at pixel-level");
+        igt.setRequired(true);
+        options.addOption(igt);
 
-            if (args.length > 3) {
-                outputPath = args[3];
-                logger.info("Output path is " + outputPath);
-            }
+        // GT XML
+        Option xgt = new Option("xgt", "xmlGroundTruth", true, "Ground Truth XML");
+        xgt.setRequired(true);
+        options.addOption(xgt);
 
-            if (args.length > 4) {
-                threshold = Double.parseDouble(args[4]);
-                logger.info("IU matching threshold is " + (100*threshold) + " %");
-            }
+        // Prediction XML
+        Option xp = new Option("xp", "xmlPrediction", true, "Prediction XML");
+        xp.setRequired(true);
+        options.addOption(xp);
 
-            if (args.length > 5) {
-                comments = Boolean.parseBoolean(args[5]);
-                logger.info("Taking comments into account: " + comments);
-            }
+        // Output path for the CSV file (optional)
+        options.addOption(new Option("o", "outputPath", true, "Output path, for the CSV file "));
 
+        // Matching threshold (optional)
+        options.addOption(new Option("mt", "matchingThreshold", true, "Matching threshold for detected lines"));
 
-            // Inputs
-            logger.info("Loading image ground truth from " + args[0]);
-            try {
-                image = ImageIO.read(new File(args[0]));
-            } catch (IOException e) {
-                logger.error(e.getMessage());
-            }
+        // Account for comments (optional)
+        options.addOption(new Option("c", "comments", false, "(Flag) Take comments into account"));
 
-            logger.info("Loading page ground truth from " + args[1]);
-            truth = ImageLinePageDataset.readOutputDataFromFile(args[1], comments);
+        // Parse arguments
+        CommandLine cmd;
 
-            logger.info("Loading method output from " + args[2]);
-            output = ImageLinePageDataset.readOutputDataFromFile(args[2], comments);
+        try {
+            cmd = new DefaultParser().parse(options, args);
+        } catch (ParseException e) {
+            System.out.println(e.getMessage());
+            new HelpFormatter().printHelp("utility-name", options);
+            System.exit(1);
+            return;
+        }
 
+        // Assign compulsory parameter values
+        String imageGtPath = cmd.getOptionValue("imageGroundTruth").replace("/", File.separator);
+        String xmlGtPath = cmd.getOptionValue("xmlGroundTruth").replace("/", File.separator);
+        String xmlPredictionPath = cmd.getOptionValue("xmlPrediction").replace("/", File.separator);
 
-            // Get main text area
-            Rectangle mainTextArea = null;
-            try {
-                Document xmlDocument = new SAXBuilder().build(new File(args[1]));
-                Element root = xmlDocument.getRootElement();
-                Namespace namespace = root.getNamespace();
-                Element page = root.getChild("Page", namespace);
-                Element region = page.getChild("TextRegion", namespace);
-                String coordString = region.getChild("Coords", namespace).getAttributeValue("points");
-                String[] coords = coordString.split(" ");
-                int[] coordsX = {(int) Double.parseDouble(coords[0].split(",")[0]),
-                        (int) Double.parseDouble(coords[1].split(",")[0]),
-                        (int) Double.parseDouble(coords[2].split(",")[0]),
-                        (int) Double.parseDouble(coords[3].split(",")[0])};
-                int xmin = Math.min(coordsX[0], Math.min(coordsX[1], Math.min(coordsX[2], coordsX[3])));
-                int xmax = Math.max(coordsX[0], Math.max(coordsX[1], Math.max(coordsX[2], coordsX[3])));
-                int[] coordsY = {(int) Double.parseDouble(coords[0].split(",")[1]),
-                        (int) Double.parseDouble(coords[1].split(",")[1]),
-                        (int) Double.parseDouble(coords[2].split(",")[1]),
-                        (int) Double.parseDouble(coords[3].split(",")[1])};
-                int ymin = Math.min(coordsY[0], Math.min(coordsY[1], Math.min(coordsY[2], coordsY[3])));
-                int ymax = Math.max(coordsY[0], Math.max(coordsY[1], Math.max(coordsY[2], coordsY[3])));
-                mainTextArea = new Rectangle(xmin, ymin, (xmax - xmin), (ymax - ymin));
-            } catch (JDOMException | IOException e) {
-                logger.error(e);
-                if (logger.isDebugEnabled()) {
-                    e.printStackTrace();
-                }
-            }
+        // Assign optional parameters
+        String outputPath = "";
+        if(cmd.hasOption("outputPath")) {
+            outputPath = cmd.getOptionValue("outputPath").replace("/", File.separator);
+            logger.info("Output path is: " + outputPath);
+        }
 
+        double threshold = 0.75;
+        if(cmd.hasOption("matchingThreshold")) {
+            threshold = Double.parseDouble(cmd.getOptionValue("matchingThreshold"));
+            logger.info("Matching threshold is: " + (100*threshold) + " %");
+        }
 
-            // Evaluating...
-            logger.info("Evaluating...");
-            LineSegmentationEvaluator evaluator = new LineSegmentationEvaluator();
-            Results results = evaluator.evaluate(image, truth, output, threshold, comments, mainTextArea);
+        boolean comments = false;
+        if(cmd.hasOption("comments")) {
+            comments = true;
+            logger.info("Taking comments into account: true");
+        }
 
+        ///////////////////////////////////////////////////////////////////////////////////////////////
+        // Parse input XMLs
+        ///////////////////////////////////////////////////////////////////////////////////////////////
 
-            // Write evaluation image
-            String evalImagePath = outputPath.substring(0, outputPath.lastIndexOf('.'));
-            evalImagePath += ".visualization";
-            evalImagePath += args[0].substring(args[0].lastIndexOf('.'));
-            try {
-                ImageIO.write(evaluator.getEvalImage(), evalImagePath.substring(evalImagePath.lastIndexOf('.') + 1), new File(evalImagePath));
-                logger.info("Writing evaluation image in " + evalImagePath);
-            } catch (IOException e) {
-                logger.error(e);
-            }
+        // Loading the image GT
+        BufferedImage image = null;
+        logger.info("Loading image ground truth from " + imageGtPath);
+        try {
+            image = ImageIO.read(new File(imageGtPath));
+        } catch (IOException e) {
+            logger.error(e.getMessage());
+        }
 
-            // Output
-            if (!outputPath.isEmpty()) {
-                logger.info("Writing results in " + outputPath);
-                results.writeToCSV(outputPath);
-            }
+        // Loading GT XML
+        logger.info("Loading page ground truth from " + xmlGtPath);
+        // truth = ImageLinePageDataset.readDataFromFile(xmlGtPath, comments);
+        List<Polygon> truth = ImageLinePageDataset.readDataFromFile(xmlGtPath);
 
+        // Loading prediction XML
+        logger.info("Loading method output from " + xmlPredictionPath);
+        //output = ImageLinePageDataset.readDataFromFile(xmlPredictionPath, comments);
+        List<Polygon> output = ImageLinePageDataset.readDataFromFile(xmlPredictionPath);
+
+        // Evaluating the prediction provided
+        logger.info("Evaluating...");
+        LineSegmentationEvaluator evaluator = new LineSegmentationEvaluator();
+        Results results = evaluator.evaluate(image, truth, output, threshold);
+
+        // / Add the prediction filename to the results
+        results.put(Results.FILENAME,xmlPredictionPath.substring(xmlPredictionPath.lastIndexOf(File.separator) + 1, xmlPredictionPath.lastIndexOf('.')));
+
+        // Write evaluation image
+        String evalImagePath = outputPath.substring(0, outputPath.lastIndexOf('.'));
+        evalImagePath += ".visualization";
+        evalImagePath += imageGtPath.substring(imageGtPath.lastIndexOf('.'));
+        try {
+            ImageIO.write(evaluator.getEvalImage(), evalImagePath.substring(evalImagePath.lastIndexOf('.') + 1), new File(evalImagePath));
+            logger.info("Writing evaluation image in " + evalImagePath);
+        } catch (IOException e) {
+            logger.error(e);
+        }
+
+        // Write the results in a CSV file, if outPath is provided
+        if (!outputPath.isEmpty()) {
+            logger.info("Writing results in " + outputPath);
+            results.writeToCSV(outputPath);
         }
     }
 
+    /**
+     * Extract the main text area from a GT in XML format
+     * @param xmlGtPath the GT file in XML format
+     * @return a Rectangle representing the main text area
+     */
+    private static Rectangle getMainTextArea(String xmlGtPath) {
+        String pointsString="";
+        try {
+            Element root = new SAXBuilder().build(new File(xmlGtPath)).getRootElement();
+            Namespace namespace = root.getNamespace();
+            Element page = root.getChild("Page", namespace);
+            Element region = page.getChild("TextRegion", namespace);
+            // Get the string with the coordinates from the XML
+            pointsString = region.getChild("Coords", namespace).getAttributeValue("points");
+        } catch (JDOMException | IOException e) {
+            logger.error(e);
+            if (logger.isDebugEnabled()) {
+                e.printStackTrace();
+            }
+        }
+
+        // Parse the points
+        String[] pointsList = pointsString.split(" ");
+
+        // Parse X and Y coordinates from the point list
+        int[] x = {
+                (int) Double.parseDouble(pointsList[0].split(",")[0]),
+                (int) Double.parseDouble(pointsList[1].split(",")[0]),
+                (int) Double.parseDouble(pointsList[2].split(",")[0]),
+                (int) Double.parseDouble(pointsList[3].split(",")[0])};
+        int[] y = {
+                (int) Double.parseDouble(pointsList[0].split(",")[1]),
+                (int) Double.parseDouble(pointsList[1].split(",")[1]),
+                (int) Double.parseDouble(pointsList[2].split(",")[1]),
+                (int) Double.parseDouble(pointsList[3].split(",")[1])};
+
+        // Sort the coordinates to get easy max&min
+        Arrays.sort(x);
+        Arrays.sort(y);
+
+        // Create the rectangle as: xMin, yMin, width=(xMax-xMin), height=(yMax - yMin)
+        return new Rectangle(x[0], y[0], (x[x.length-1] - x[0]), (y[y.length-1] - y[0]));
+    }
 }
+
+
