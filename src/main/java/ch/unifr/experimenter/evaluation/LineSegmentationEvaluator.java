@@ -167,7 +167,8 @@ public class LineSegmentationEvaluator {
                 }
             }
 
-
+            // Drawing polygon color
+            Color color = Color.WHITE;
 
             // Integrate values for this line into the global sum
             TP += lineTP;
@@ -182,29 +183,6 @@ public class LineSegmentationEvaluator {
             double R = lineTP / (double) (lineTP+lineFN); // Recall
             logger.trace("P = " + P);
             logger.trace("R = " + R);
-
-            // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
-            if(P < threshold) {
-                logger.debug("line considered as extra");
-                nbLinesExtra++;
-            }
-
-            // The line hit too few pixels which belong to the GT, hence is considered as a miss line
-            if(R < threshold) {
-                logger.debug("line considered as  missed");
-                nbLinesMissed++;
-            }
-
-            // The line is considered as correctly detected
-            if(P >= threshold && R >= threshold) {
-                logger.trace("line considered as correctly detected");
-                nbLinesCorrect++;
-            } else {
-                logger.debug("line skipped, P|R below threshold: P=" + P + ",R=" + R);
-            }
-
-            // Drawing polygon color
-            Color color = Color.WHITE;
 
             // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
             if(P < threshold) {
@@ -229,7 +207,7 @@ public class LineSegmentationEvaluator {
                 logger.debug("line skipped, P|R below threshold: P=" + P + ",R=" + R);
             }
 
-            // For coloring the polygon
+            // For coloring the polygon in case the line has both too low R and P
             if(P < threshold && R < threshold) {
                 color = Color.PINK;
             }
