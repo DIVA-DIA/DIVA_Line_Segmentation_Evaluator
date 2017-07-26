@@ -6,20 +6,16 @@
 package ch.unifr.experimenter.database;
 
 import org.apache.log4j.Logger;
-import org.jdom2.*;
+import org.jdom2.Document;
+import org.jdom2.Element;
+import org.jdom2.JDOMException;
+import org.jdom2.Namespace;
 import org.jdom2.input.SAXBuilder;
-import org.jdom2.output.Format;
-import org.jdom2.output.XMLOutputter;
 
-import javax.imageio.ImageIO;
 import java.awt.*;
-import java.awt.image.BufferedImage;
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 
 /**
@@ -27,7 +23,7 @@ import java.util.List;
  *
  * @author Manuel Bouillon <manuel.bouillon@unifr.ch>
  * @review Michele Alberti <michele.alberti@unifr.ch>
- * @date 24.07.2017
+ * @date 25.07.2017
  * @brief Load data files in PAGE format
  */
 public class ImageLinePageDataset {

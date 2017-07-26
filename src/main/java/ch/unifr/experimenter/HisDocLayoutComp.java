@@ -112,13 +112,6 @@ public class HisDocLayoutComp {
         // Add the prediction file name without extension
         outputPath += xmlPredictionPath.substring(xmlPredictionPath.lastIndexOf(File.separator) + 1, xmlPredictionPath.lastIndexOf('.'));
 
-        // Assign optional parameters
-        String csv = "";
-        if(cmd.hasOption("csv")) {
-            csv = cmd.getOptionValue("csv").replace("/", File.separator);
-            logger.info("Path the csv file is: " + csv);
-        }
-
         double threshold = 0.75;
         if(cmd.hasOption("matchingThreshold")) {
             threshold = Double.parseDouble(cmd.getOptionValue("matchingThreshold"));
@@ -162,6 +155,12 @@ public class HisDocLayoutComp {
         // / Add the prediction filename to the results
         results.put(Results.FILENAME,xmlPredictionPath.substring(xmlPredictionPath.lastIndexOf(File.separator) + 1, xmlPredictionPath.lastIndexOf('.')));
 
+        // Write the results in a CSV file, if outPath is provided
+        if (cmd.hasOption("csv")) {
+            logger.info("Writing results in " + outputPath);
+            results.writeToCSV(xmlPredictionPath.substring(0, xmlPredictionPath.lastIndexOf(File.separator) + 1) + "results.csv");
+        }
+
         // Write evaluation image
         BufferedImage visualization = evaluator.getEvalImage();
         try {
@@ -179,12 +178,6 @@ public class HisDocLayoutComp {
             } catch (IOException e) {
                 logger.error(e);
             }
-        }
-
-        // Write the results in a CSV file, if outPath is provided
-        if (!outputPath.isEmpty()) {
-            logger.info("Writing results in " + outputPath);
-            results.writeToCSV(outputPath + "results");
         }
     }
 
