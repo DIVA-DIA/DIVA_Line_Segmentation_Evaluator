@@ -237,7 +237,7 @@ public class LineSegmentationEvaluator {
         results.put(Results.LINES_NB_CORRECT, nbLinesCorrect);
 
         results.put(Results.LINES_IU, lineIU);
-        results.put(Results.LINES_IU, lineF1);
+        results.put(Results.LINES_FMEASURE, lineF1);
         results.put(Results.LINES_RECALL, lineRecall);
         results.put(Results.LINES_PRECISION, linePrecision);
 
@@ -261,9 +261,11 @@ public class LineSegmentationEvaluator {
         logger.debug("nbLinesExtra = " + nbLinesExtra);
         logger.debug("nbLinesMissed = " + nbLinesMissed);
         logger.debug("line IU = " + lineIU);
+        logger.debug("line F1 = " + lineF1);
         logger.debug("linePrecision = " + linePrecision);
         logger.debug("lineRecall = " + lineRecall);
         logger.debug("pixel IU = " + pixelIU);
+        logger.debug("pixel F1 = " + pixelF1);
         logger.debug("pixelPrecision = " + pixelPrecision);
         logger.debug("pixelRecall = " + pixelRecall);
 
