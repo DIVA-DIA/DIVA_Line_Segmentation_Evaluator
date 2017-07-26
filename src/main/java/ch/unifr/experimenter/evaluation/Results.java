@@ -7,12 +7,11 @@ package ch.unifr.experimenter.evaluation;
 
 import org.apache.log4j.Logger;
 
+import java.io.File;
 import java.io.IOException;
-import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.nio.file.StandardOpenOption;
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -67,25 +66,60 @@ public class Results {
 
     /**
      * Write results as CSV file. If the file already exists it appends a new line only
-     * @param outputPath the path for the CSV results file
+     * @param fName file name for the CSV results file
      */
-    public void writeToCSV(String outputPath) {
-        //TODO append if file exist and fix print order
-        ArrayList<String> lines = new ArrayList<>();
+    public void writeToCSV(String fName) {
+
+        File file = new File(fName);
+
+        // If the file does not exist, create it and write the name of the metrics
+        if(!file.exists()){
+            StringBuilder s = new StringBuilder();
+            s.append(FILENAME.split("\\.")[1]).append(",");
+
+            s.append(LINES_NB_TRUTH.split("\\.")[1]).append(",");
+            s.append(LINES_NB_PROPOSED.split("\\.")[1]).append(",");
+            s.append(LINES_NB_CORRECT.split("\\.")[1]).append(",");
+
+            s.append(LINES_IU.split("\\.")[1]).append(",");
+            s.append(LINES_FMEASURE.split("\\.")[1]).append(",");
+            s.append(LINES_RECALL.split("\\.")[1]).append(",");
+            s.append(LINES_PRECISION.split("\\.")[1]).append(",");
+
+            s.append(PIXEL_IU.split("\\.")[1]).append(",");
+            s.append(PIXEL_FMEASURE.split("\\.")[1]).append(",");
+            s.append(PIXEL_PRECISION.split("\\.")[1]).append(",");
+            s.append(PIXEL_RECALL.split("\\.")[1]).append("\n");
+
+            try {
+                Files.write(Paths.get(fName), s.toString().getBytes());
+                logger.debug("Created " + fName);
+            } catch (IOException e) {
+                logger.error(e.getMessage());
+            }
+
+        }
 
         StringBuilder s = new StringBuilder();
-        String line2 = "";
-        for (String key: results.keySet()) {
-            // Take the middle part of the key, which is the metric name
-            s.append(key.split("\\.")[1]).append(",");
-            line2 += results.get(key) + ",";
-        }
-        lines.add(s.toString());
-        lines.add(line2);
+        s.append(results.get(FILENAME)).append(",");
+
+        s.append(results.get(LINES_NB_TRUTH)).append(",");
+        s.append(results.get(LINES_NB_PROPOSED)).append(",");
+        s.append(results.get(LINES_NB_CORRECT)).append(",");
+
+        s.append(results.get(LINES_IU)).append(",");
+        s.append(results.get(LINES_FMEASURE)).append(",");
+        s.append(results.get(LINES_RECALL)).append(",");
+        s.append(results.get(LINES_PRECISION)).append(",");
+
+        s.append(results.get(PIXEL_IU)).append(",");
+        s.append(results.get(PIXEL_FMEASURE)).append(",");
+        s.append(results.get(PIXEL_PRECISION)).append(",");
+        s.append(results.get(PIXEL_RECALL)).append("\n");
 
         try {
-           Files.write(Paths.get(outputPath), line2.getBytes(), StandardOpenOption.APPEND);
-            logger.debug("wrote " + outputPath);
+            Files.write(Paths.get(fName), s.toString().getBytes(), StandardOpenOption.APPEND);
+            logger.debug("Appended results on" + fName);
         } catch (IOException e) {
             logger.error(e.getMessage());
         }
