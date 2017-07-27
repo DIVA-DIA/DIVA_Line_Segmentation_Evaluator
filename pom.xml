@@ -76,7 +76,7 @@
                         <manifest>
                             <addClasspath>true</addClasspath>
                             <!-- Jar file entry point -->
-                            <mainClass>ch.unifr.experimenter.HisDocLayoutComp</mainClass>
+                            <mainClass>ch.unifr.LineSegmentationEvaluatorTool</mainClass>
                             <classpathPrefix>dependency-jars/</classpathPrefix>
                         </manifest>
                     </archive>
