@@ -20,8 +20,6 @@ Parameters list: utility-name
 Along with the numerical results (such as the Lines/Pixels Intersection over Union (IU), precision, recall,F1) 
 the tool provides a human friendly visualization of the results. The three images below are exampels of such visualization:  
 
-![Alt text](examples/example_visualization1.png?raw=true)
-![Alt text](examples/example_visualization2.png?raw=true)
 ![Alt text](examples/example_visualization3.png?raw=true)
 
 ### Interpreting the colors
