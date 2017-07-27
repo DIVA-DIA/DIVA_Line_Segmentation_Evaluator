@@ -15,7 +15,7 @@ Parameters list: utility-name
  ```
 **Note:** this also output a human-friendly visualization of the results next to the `page_to_evaluate.xml` and, to enable deeper analysis, it can be overlapped to the original image if provided with the parameter `-overlap`.  
 
-##Visualization of the results
+## Visualization of the results
 
 Along with the numerical results (such as the Lines/Pixels Intersection over Union (IU), precision, recall,F1) 
 the tool provides a human friendly visualization of the results. The three images below are exampels of such visualization:  
