@@ -52,7 +52,7 @@ This is easily explainable as one see how the polygon of the top line (red line)
 
 ![Alt text](examples/example_visualization_zoom.png?raw=true)
 
-##Overlap of the results
+## Overlap of the results
 
 Additionally, when desired one can provide the original image and it will be overlapped with the visualization of the results.
 This is particularly helpful to understand why certain artifacts are created. 
