@@ -17,14 +17,46 @@ Parameters list: utility-name
 
 ##Visualization of the results
 
-![](https://github.com/DIVA-DIA/LineSegmentationEvaluator/blob/master/examples/example_visualization1.png?raw=true)
+Along with the numerical results (such as the Lines/Pixels Intersection over Union (IU), precision, recall,F1) 
+the tool provides a human friendly visualization of the results. The three images below are exampels of such visualization:  
 
-<img src="https://github.com/DIVA-DIA/LineSegmentationEvaluator/blob/master/examples/example_visualization1.png">
+![Alt text](examples/example_visualization1.png?raw=true)
+![Alt text](examples/example_visualization2.png?raw=true)
+![Alt text](examples/example_visualization3.png?raw=true)
 
-hhh
+### Interpreting the colors
+
+Pixel colors are assigned depending on the type of the pixel (TP,FP,FN or shared among different polygons)
+
+- GREEN: Foreground pixel predicted correctly
+- RED: Foreground pixel that should have been in this (False negative)
+- BLUE: Foreground pixel does not belong to this line (False positive)
+- YELLOW: Foreground pixel which belong two multiple lines (even if one is the GT)
+
+Polygon colors are assigned depending on the total pixel precision and recall for the corresponding line:
+
+- GREEN: Precision & Recall both above the threshold (default 75%)
+- RED: Precision below threshold 
+- BLUE: Recall below threshold 
+- PINK: Precision & Recall both below the threshold
+
+
+### Example of problem hunting
+
+In the zoomed image below one can extract the some information:
+ 
+- Since the polygon is RED, it means that there are too many foreground pixels which don't belong to its matched line.
+This is easily explainable as one see how the polygon of the top line (red line) is extended to the line below. 
+
+- The yellow line, is in fact yellow because considered foreground by the red polygon (see above point) and the GT polygon corresponding to that line.
+
+- The blue pixels are missed in the predicted lines, but are in the GT, therefore they're considered as false negatives.
 
 ![Alt text](examples/example_visualization_zoom.png?raw=true)
 
 ##Overlap of the results
 
-(where green is true positive, red is false positive, blue false negative and yellow is mixed mistake).
+Additionally, when desired one can provide the original image and it will be overlapped with the visualization of the results.
+This is particularly helpful to understand why certain artifacts are created. 
+
+![Alt text](examples/example_overlap.png?raw=true)

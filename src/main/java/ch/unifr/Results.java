@@ -30,13 +30,21 @@ public class Results {
      * Keys for the different measures
      */
     public static final String FILENAME = "LineSegmentation.filename.String";
+
     public static final String LINES_NB_TRUTH = "LineSegmentation.NbLinesTruth.int";
     public static final String LINES_NB_PROPOSED = "LineSegmentation.NbLinesProposed.int";
     public static final String LINES_NB_CORRECT = "LineSegmentation.NbLinesCorrect.int";
+
     public static final String LINES_IU = "LineSegmentation.LinesIU.double";
     public static final String LINES_FMEASURE = "LineSegmentation.LinesFMeasure.double";
     public static final String LINES_RECALL = "LineSegmentation.LinesRecall.Double";
     public static final String LINES_PRECISION = "LineSegmentation.LinesPrecision.Double";
+
+    public static final String MATCHED_PIXEL_IU = "LineSegmentation.MatchedPixelIU.double";
+    public static final String MATCHED_PIXEL_FMEASURE = "LineSegmentation.MatchedPixelFMeasure.Double";
+    public static final String MATCHED_PIXEL_PRECISION = "LineSegmentation.MatchedPixelPrecision.Double";
+    public static final String MATCHED_PIXEL_RECALL = "LineSegmentation.MatchedPixelRecall.Double";
+
     public static final String PIXEL_IU = "LineSegmentation.PixelIU.double";
     public static final String PIXEL_FMEASURE = "LineSegmentation.PixelFMeasure.Double";
     public static final String PIXEL_PRECISION = "LineSegmentation.PixelPrecision.Double";
@@ -83,6 +91,11 @@ public class Results {
             s.append(LINES_RECALL.split("\\.")[1]).append(",");
             s.append(LINES_PRECISION.split("\\.")[1]).append(",");
 
+            s.append(MATCHED_PIXEL_IU.split("\\.")[1]).append(",");
+            s.append(MATCHED_PIXEL_FMEASURE.split("\\.")[1]).append(",");
+            s.append(MATCHED_PIXEL_PRECISION.split("\\.")[1]).append(",");
+            s.append(MATCHED_PIXEL_RECALL.split("\\.")[1]).append("\n");
+
             s.append(PIXEL_IU.split("\\.")[1]).append(",");
             s.append(PIXEL_FMEASURE.split("\\.")[1]).append(",");
             s.append(PIXEL_PRECISION.split("\\.")[1]).append(",");
@@ -94,25 +107,29 @@ public class Results {
             } catch (IOException e) {
                 logger.error(e.getMessage());
             }
-
         }
 
         StringBuilder s = new StringBuilder();
         s.append(results.get(FILENAME)).append(",");
 
-        s.append(results.get(LINES_NB_TRUTH)).append(",");
-        s.append(results.get(LINES_NB_PROPOSED)).append(",");
-        s.append(results.get(LINES_NB_CORRECT)).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_NB_TRUTH)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_NB_PROPOSED)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_NB_CORRECT)))).append(",");
 
-        s.append(results.get(LINES_IU)).append(",");
-        s.append(results.get(LINES_FMEASURE)).append(",");
-        s.append(results.get(LINES_RECALL)).append(",");
-        s.append(results.get(LINES_PRECISION)).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_IU)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_FMEASURE)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_RECALL)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(LINES_PRECISION)))).append(",");
 
-        s.append(results.get(PIXEL_IU)).append(",");
-        s.append(results.get(PIXEL_FMEASURE)).append(",");
-        s.append(results.get(PIXEL_PRECISION)).append(",");
-        s.append(results.get(PIXEL_RECALL)).append("\n");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(MATCHED_PIXEL_IU)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(MATCHED_PIXEL_FMEASURE)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(MATCHED_PIXEL_PRECISION)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(MATCHED_PIXEL_RECALL)))).append(",");
+
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(PIXEL_IU)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(PIXEL_FMEASURE)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(PIXEL_PRECISION)))).append(",");
+        s.append(String.format("%2.4f", Double.parseDouble(results.get(PIXEL_RECALL)))).append("\n");
 
         try {
             Files.write(Paths.get(fName), s.toString().getBytes(), StandardOpenOption.APPEND);

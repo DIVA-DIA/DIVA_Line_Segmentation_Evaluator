@@ -60,6 +60,11 @@ public class LineSegmentationEvaluator {
         int nbLinesMissed = 0;
         int nbLinesExtra = 0;
 
+        // Pixels counts for the matched lines
+        int matchedTP = 0;
+        int matchedFN = 0;
+        int matchedFP = 0;
+
         // Pixels counts for the whole image
         int TP = 0;
         int FN = 0;
@@ -181,6 +186,7 @@ public class LineSegmentationEvaluator {
             logger.trace("P = " + P);
             logger.trace("R = " + R);
 
+            ///////////////////////////////////////////////////////////////////////////////////////
             // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
             if(P < threshold) {
                 logger.debug("line considered as extra");
@@ -188,6 +194,7 @@ public class LineSegmentationEvaluator {
                 color = Color.RED;
             }
 
+            ///////////////////////////////////////////////////////////////////////////////////////
             // The line hit too few pixels which belong to the GT, hence is considered as a miss line
             if(R < threshold) {
                 logger.debug("line considered as  missed");
@@ -195,9 +202,14 @@ public class LineSegmentationEvaluator {
                 color = Color.BLUE;
             }
 
+            ///////////////////////////////////////////////////////////////////////////////////////
             // The line is considered as correctly detected
             if(P >= threshold && R >= threshold) {
                 logger.trace("line considered as correctly detected");
+                // Integrate values for this line into the global sum
+                matchedTP += lineTP;
+                matchedFN += lineFN;
+                matchedFP += lineFP;
                 nbLinesCorrect++;
                 color = Color.GREEN;
             } else {
@@ -209,6 +221,7 @@ public class LineSegmentationEvaluator {
                 color = Color.PINK;
             }
 
+            ///////////////////////////////////////////////////////////////////////////////////////
             // Draw the polygon on the visualization
             if(pp!=null){
                 Graphics g = evalImage.getGraphics();
@@ -220,13 +233,19 @@ public class LineSegmentationEvaluator {
         // Line scores
         double linePrecision = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesExtra);
         double lineRecall = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesMissed);
-        double lineF1 = 2*linePrecision*lineRecall / (linePrecision+lineRecall);
+        double lineF1 = 2 * nbLinesCorrect / (double) (2 * nbLinesCorrect + nbLinesMissed + nbLinesExtra);
         double lineIU = nbLinesCorrect / (double) (nbLinesCorrect + nbLinesMissed + nbLinesExtra);
+
+        // Pixel scores
+        double matchedPixelPrecision = matchedTP / (double) (matchedTP + matchedFP);
+        double matchedPixelRecall = matchedTP / (double) (matchedTP + matchedFN);
+        double matchedPixelF1 = 2 * matchedTP / (double) (2 * matchedTP + matchedFP + matchedFN);
+        double matchedPixelIU = matchedTP / (double) (matchedTP + matchedFP + matchedFN);
 
         // Pixel scores
         double pixelPrecision = TP / (double) (TP + FP);
         double pixelRecall = TP / (double) (TP + FN);
-        double pixelF1 = 2*pixelPrecision*pixelRecall / (pixelPrecision+pixelRecall);
+        double pixelF1 = 2 * TP / (double) (2 * TP + FP + FN);
         double pixelIU = TP / (double) (TP + FP + FN);
 
         // Storing line results
@@ -241,6 +260,12 @@ public class LineSegmentationEvaluator {
         results.put(Results.LINES_RECALL, lineRecall);
         results.put(Results.LINES_PRECISION, linePrecision);
 
+        // Storing matched pixel results
+        results.put(Results.MATCHED_PIXEL_IU, matchedPixelIU);
+        results.put(Results.MATCHED_PIXEL_FMEASURE, matchedPixelF1);
+        results.put(Results.MATCHED_PIXEL_PRECISION, matchedPixelPrecision);
+        results.put(Results.MATCHED_PIXEL_RECALL, matchedPixelRecall);
+
         // Storing pixel results
         results.put(Results.PIXEL_IU, pixelIU);
         results.put(Results.PIXEL_FMEASURE, pixelF1);
@@ -254,16 +279,24 @@ public class LineSegmentationEvaluator {
         logger.debug("FP = " + FP);
         logger.debug("FN = " + FN);
         logger.debug("GT size = " + groundTruth.size());
+
         logger.debug("Prediction size = " + prediction.size());
         logger.debug("nbPixelsPrediction = " + nbPixelsPrediction);
         logger.debug("nbPixelsGt = " + nbPixelsGt);
         logger.debug("nbLinesCorrect = " + nbLinesCorrect);
         logger.debug("nbLinesExtra = " + nbLinesExtra);
         logger.debug("nbLinesMissed = " + nbLinesMissed);
+
         logger.debug("line IU = " + lineIU);
         logger.debug("line F1 = " + lineF1);
         logger.debug("linePrecision = " + linePrecision);
         logger.debug("lineRecall = " + lineRecall);
+
+        logger.debug("matchedPixel IU = " + matchedPixelIU);
+        logger.debug("matchedPixel F1 = " + matchedPixelF1);
+        logger.debug("matchedPixelPrecision = " + matchedPixelPrecision);
+        logger.debug("matchedPixelRecall = " + matchedPixelRecall);
+
         logger.debug("pixel IU = " + pixelIU);
         logger.debug("pixel F1 = " + pixelF1);
         logger.debug("pixelPrecision = " + pixelPrecision);
