@@ -17,18 +17,14 @@ Parameters list: utility-name
 
 ##Visualization of the results
 
+![](https://github.com/DIVA-DIA/LineSegmentationEvaluator/blob/master/examples/example_visualization1.png?raw=true)
 
-![](b.png?=250x)
-
-![Alt text](examples/a.png?raw=true)
+<img src="https://github.com/DIVA-DIA/LineSegmentationEvaluator/blob/master/examples/example_visualization1.png">
 
 hhh
-
 
 ![Alt text](examples/example_visualization_zoom.png?raw=true)
 
 ##Overlap of the results
-
-
 
 (where green is true positive, red is false positive, blue false negative and yellow is mixed mistake).
