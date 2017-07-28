@@ -13,7 +13,10 @@ Parameters list: utility-name
  -out,--outputPath <arg>         (Optional) Output path (relative to prediction input path)
  -csv                            (Optional) (Flag) Save the results to a CSV file
  ```
-**Note:** this also output a human-friendly visualization of the results next to the `page_to_evaluate.xml` and, to enable deeper analysis, it can be overlapped to the original image if provided with the parameter `-overlap`.  
+
+**Note:** this also outputs a human-friendly visualization of the results next to the
+ `page_to_evaluate.xml` which can be overlapped to the original image if provided 
+ with the parameter `-overlap` to enable deeper analysis. 
 
 ## Visualization of the results
 
