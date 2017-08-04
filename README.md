@@ -32,7 +32,7 @@ Pixel colors are assigned depending on the type of the pixel (TP,FP,FN or shared
 - GREEN: Foreground pixel predicted correctly
 - RED: Foreground pixel that should have been in this (False negative)
 - BLUE: Foreground pixel does not belong to this line (False positive)
-- YELLOW: Foreground pixel which belong two multiple lines (even if one is the GT)
+- YELLOW: Foreground pixel which belong to another line
 
 Polygon colors are assigned depending on the total pixel precision and recall for the corresponding line:
 
