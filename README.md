@@ -1,7 +1,7 @@
 # LineSegmentationEvaluator
 Line Segmentation Evaluator for the ICDAR2017 competition on Layout Analysis for Challenging Medieval Manuscripts
 
-Minimal usage: `java -jar LineSegmentationEvaluator.jar -image_gt.png page_gt.xml page_to_evaluate.xml`
+Minimal usage: `java -jar LineSegmentationEvaluator.jar -igt -image_gt.png -xgt page_gt.xml -xp page_to_evaluate.xml`
 
 Parameters list: utility-name
 ```
