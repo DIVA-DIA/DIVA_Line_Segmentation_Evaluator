@@ -94,7 +94,7 @@ public class Results {
             s.append(MATCHED_PIXEL_IU.split("\\.")[1]).append(",");
             s.append(MATCHED_PIXEL_FMEASURE.split("\\.")[1]).append(",");
             s.append(MATCHED_PIXEL_PRECISION.split("\\.")[1]).append(",");
-            s.append(MATCHED_PIXEL_RECALL.split("\\.")[1]).append("\n");
+            s.append(MATCHED_PIXEL_RECALL.split("\\.")[1]).append(",");
 
             s.append(PIXEL_IU.split("\\.")[1]).append(",");
             s.append(PIXEL_FMEASURE.split("\\.")[1]).append(",");
