@@ -5,7 +5,7 @@
 
 package ch.unifr;
 
-import javafx.util.Pair;
+import org.apache.commons.lang3.tuple.Pair;
 import org.apache.log4j.Logger;
 
 import java.awt.*;
@@ -40,17 +40,17 @@ public class LineSegmentationEvaluator {
     /**
      * Evaluate output data with respect to ground truth
      *
-     * @param groundTruthImage         the ground truth groundTruthImage
-     * @param prediction  the polygons output by the method to evaluate
-     * @param groundTruth   the ground truth polygons
-     * @param threshold     the IU threshold for line matching
+     * @param groundTruthImage the ground truth groundTruthImage
+     * @param prediction       the polygons output by the method to evaluate
+     * @param groundTruth      the ground truth polygons
+     * @param threshold        the IU threshold for line matching
      * @return Results object
      */
     public Results evaluate(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> prediction, double threshold) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Match overlapping polygons
-        List<Pair<Polygon,Polygon>> matching = getMatchingPolygons(groundTruthImage, groundTruth, prediction);
+        List<Pair<Polygon, Polygon>> matching = getMatchingPolygons(groundTruthImage, groundTruth, prediction);
 
         // Init evaluation image
         evalImage = new BufferedImage(groundTruthImage.getWidth(), groundTruthImage.getHeight(), BufferedImage.TYPE_INT_RGB);
@@ -73,7 +73,7 @@ public class LineSegmentationEvaluator {
         int nbPixelsGt = 0;
 
         // For every match
-        for (Pair<Polygon,Polygon> match : matching) {
+        for (Pair<Polygon, Polygon> match : matching) {
 
             // Extract the predicted and ground truth polygons from the match pair
             Polygon pp = match.getKey();
@@ -96,8 +96,8 @@ public class LineSegmentationEvaluator {
              * In case one of the two polygons is null (because it was an extra o miss line)
              * the union is exactly the non-null polygon.
              */
-            Rectangle rp = (pp!=null) ? pp.getBounds(): pgt.getBounds();
-            Rectangle rgt = (pgt!=null) ? pgt.getBounds(): pp.getBounds();
+            Rectangle rp = (pp != null) ? pp.getBounds() : pgt.getBounds();
+            Rectangle rgt = (pgt != null) ? pgt.getBounds() : pp.getBounds();
 
             // Find the union
             Rectangle union = rgt.union(rp);
@@ -107,7 +107,7 @@ public class LineSegmentationEvaluator {
                 for (int y = (int) union.getMinY(); y < union.getMaxY(); y++) {
 
                     // Ignore boundary pixels
-                    if (((groundTruthImage.getRGB(x,y) >> 23) & 0x1) == 1) {
+                    if (((groundTruthImage.getRGB(x, y) >> 23) & 0x1) == 1) {
                         continue;
                     }
 
@@ -146,7 +146,7 @@ public class LineSegmentationEvaluator {
                      * (0x00FFFF) BLUE:    Foreground that should have been in this (False negative)
                      */
                     // Draw only if it concerns this line
-                    if(isInPgt || isInPp) {
+                    if (isInPgt || isInPp) {
                         int color = 0x0;                   // Black
                         if (isInPp && isInPgt) {
                             color = 0x007F00;              // Green
@@ -181,14 +181,14 @@ public class LineSegmentationEvaluator {
 
             // Evaluate the line detection
             // NOTE: a line can be considered as both miss and extra if the conditions are met!
-            double P = lineTP / (double) (lineTP+lineFP); // Precision
-            double R = lineTP / (double) (lineTP+lineFN); // Recall
+            double P = lineTP / (double) (lineTP + lineFP); // Precision
+            double R = lineTP / (double) (lineTP + lineFN); // Recall
             logger.trace("P = " + P);
             logger.trace("R = " + R);
 
             ///////////////////////////////////////////////////////////////////////////////////////
             // The line hit too many extra pixels which did not belong to the GT, hence is considered an extra line
-            if(P < threshold) {
+            if (P < threshold) {
                 logger.debug("line considered as extra");
                 nbLinesExtra++;
                 color = Color.RED;
@@ -196,7 +196,7 @@ public class LineSegmentationEvaluator {
 
             ///////////////////////////////////////////////////////////////////////////////////////
             // The line hit too few pixels which belong to the GT, hence is considered as a miss line
-            if(R < threshold) {
+            if (R < threshold) {
                 logger.debug("line considered as  missed");
                 nbLinesMissed++;
                 color = Color.BLUE;
@@ -204,7 +204,7 @@ public class LineSegmentationEvaluator {
 
             ///////////////////////////////////////////////////////////////////////////////////////
             // The line is considered as correctly detected
-            if(P >= threshold && R >= threshold) {
+            if (P >= threshold && R >= threshold) {
                 logger.trace("line considered as correctly detected");
                 // Integrate values for this line into the global sum
                 matchedTP += lineTP;
@@ -217,13 +217,13 @@ public class LineSegmentationEvaluator {
             }
 
             // For coloring the polygon in case the line has both too low R and P
-            if(P < threshold && R < threshold) {
+            if (P < threshold && R < threshold) {
                 color = Color.PINK;
             }
 
             ///////////////////////////////////////////////////////////////////////////////////////
             // Draw the polygon on the visualization
-            if(pp!=null){
+            if (pp != null) {
                 Graphics g = evalImage.getGraphics();
                 g.setColor(color);
                 g.drawPolygon(pp);
@@ -308,15 +308,15 @@ public class LineSegmentationEvaluator {
     /**
      * Find the best matching polygons between the prediction and the groundTruth
      *
-     * @param prediction polygons given by the method
-     * @param groundTruth  polygons in the ground truth
+     * @param prediction  polygons given by the method
+     * @param groundTruth polygons in the ground truth
      * @return the matching polygons
      */
-    private List<Pair<Polygon,Polygon>> getMatchingPolygons(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> prediction) {
+    private List<Pair<Polygon, Polygon>> getMatchingPolygons(BufferedImage groundTruthImage, List<Polygon> groundTruth, List<Polygon> prediction) {
         logger.trace(Thread.currentThread().getStackTrace()[1].getMethodName());
 
         // Init the return value (the match)
-        List<Pair<Polygon,Polygon>> matching = new ArrayList<>();
+        List<Pair<Polygon, Polygon>> matching = new ArrayList<>();
         Set<Polygon> matchedPolygons = new HashSet<>();
 
         // Init the list of all possibilities
@@ -359,7 +359,7 @@ public class LineSegmentationEvaluator {
                 for (int x = (int) union.getMinX(); x < union.getMaxX(); x++) {
                     for (int y = (int) union.getMinY(); y < union.getMaxY(); y++) {
                         // Ignore boundary pixels
-                        if (((groundTruthImage.getRGB(x,y) >> 23) & 0x1) == 1) {
+                        if (((groundTruthImage.getRGB(x, y) >> 23) & 0x1) == 1) {
                             continue;
                         }
 
@@ -385,10 +385,10 @@ public class LineSegmentationEvaluator {
                 }
 
                 // Omit trivial '0' results
-                if(intersectingPixels > 0) {
+                if (intersectingPixels > 0) {
                     // Add the matching possibility
-                    possibilities.add(new Possibility(pgt, pp, intersectingPixels/(double)unionPixels));
-                    logger.trace("matching possibility: " + pgt + " * " + pp + " = " + intersectingPixels/(double)unionPixels);
+                    possibilities.add(new Possibility(pgt, pp, intersectingPixels / (double) unionPixels));
+                    logger.trace("matching possibility: " + pgt + " * " + pp + " = " + intersectingPixels / (double) unionPixels);
                 }
             }
         }
@@ -401,12 +401,12 @@ public class LineSegmentationEvaluator {
          * the GT, thus maximizing the total matching score in a deterministic way.
          */
         Collections.sort(possibilities);
-        for (Possibility p : possibilities){
+        for (Possibility p : possibilities) {
             // Take the next one free on the sorted list
-            if (!matchedPolygons.contains(p.p) && !matchedPolygons.contains(p.gt)){
+            if (!matchedPolygons.contains(p.p) && !matchedPolygons.contains(p.gt)) {
                 // Add matching polygons
                 logger.debug("match " + p.score);
-                matching.add(new Pair<>(p.p,p.gt));
+                matching.add(Pair.of(p.p, p.gt));
                 matchedPolygons.add(p.p);
                 matchedPolygons.add(p.gt);
             }
@@ -416,23 +416,23 @@ public class LineSegmentationEvaluator {
 
         // Add all missing GT polygons (un-matched) by matching them will 'null'
         for (Polygon pgt : groundTruth) {
-            if (!matchedPolygons.contains(pgt)){
+            if (!matchedPolygons.contains(pgt)) {
                 logger.debug("missed line matched with null");
-                matching.add(new Pair<>(null,pgt));
+                matching.add(Pair.of(null, pgt));
                 matchedPolygons.add(pgt);
             }
         }
         // Add all extra Prediction polygons (un-matched) by matching them will 'null'
         for (Polygon pp : prediction) {
-            if (!matchedPolygons.contains(pp)){
+            if (!matchedPolygons.contains(pp)) {
                 logger.debug("extra line matched with null");
-                matching.add(new Pair<>(pp,null));
+                matching.add(Pair.of(pp, null));
                 matchedPolygons.add(pp);
             }
         }
 
         // Check that all polygons got eventually matched
-        if(matchedPolygons.size() != groundTruth.size() + prediction.size()){
+        if (matchedPolygons.size() != groundTruth.size() + prediction.size()) {
             logger.error("ERROR: some polygons have not been matched!");
         }
 
@@ -443,6 +443,7 @@ public class LineSegmentationEvaluator {
 
     /**
      * Get the evaluation image
+     *
      * @return eval image
      */
     public BufferedImage getEvalImage() {
@@ -482,12 +483,13 @@ public class LineSegmentationEvaluator {
     ///////////////////////////////////////////////////////////////////////////////////////////////
     // PRIVATE
     ///////////////////////////////////////////////////////////////////////////////////////////////
+
     /**
      * This class represent a triplet of two polygons (GT and prediction) and their
      * matching score (typically the IU). It is used to represent a possible match between
      * a GT polygon and a Prediction one.
      */
-    private final class Possibility implements Comparable<Possibility>{
+    private final class Possibility implements Comparable<Possibility> {
         /**
          * The polygon belonging to the GT
          */
@@ -503,8 +505,9 @@ public class LineSegmentationEvaluator {
 
         /**
          * Build a Possibility (triplet)
-         * @param gt the gt polygon
-         * @param p the prediction polygon
+         *
+         * @param gt    the gt polygon
+         * @param p     the prediction polygon
          * @param score their matching score
          */
         public Possibility(Polygon gt, Polygon p, double score) {
@@ -515,12 +518,13 @@ public class LineSegmentationEvaluator {
 
         /**
          * Comparator on the score of possibilities
+         *
          * @param p the possibility to comapre to
          * @return standard Double.compare (-1,0,1)
          */
         @Override
         public int compareTo(Possibility p) {
-            return Double.compare(p.score,score);
+            return Double.compare(p.score, score);
         }
     }
 }

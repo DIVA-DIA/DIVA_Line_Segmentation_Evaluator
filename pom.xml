@@ -36,6 +36,11 @@
             <version>2.4</version>
         </dependency>
         <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.7</version>
+        </dependency>
+        <dependency>
             <groupId>org.apache.sanselan</groupId>
             <artifactId>sanselan</artifactId>
             <version>0.97-incubator</version>

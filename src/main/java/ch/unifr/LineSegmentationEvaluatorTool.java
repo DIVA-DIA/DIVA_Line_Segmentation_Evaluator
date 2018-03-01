@@ -97,8 +97,13 @@ public class LineSegmentationEvaluatorTool {
         String outputPath = xmlPredictionPath.substring(0,xmlPredictionPath.lastIndexOf(File.separator)+1);
 
         // Add any relative path from there (if specified)
-        if(cmd.hasOption("outputPath")){
-            outputPath += cmd.getOptionValue("outputPath").replace("/", File.separator);
+        if (cmd.hasOption("outputPath")) {
+            File file = new File(cmd.getOptionValue("outputPath"));
+            if (file.isAbsolute()) {
+                outputPath = cmd.getOptionValue("outputPath").replace("/", File.separator);
+            } else {
+                outputPath += cmd.getOptionValue("outputPath").replace("/", File.separator);
+            }
         }
 
         // Make sure last char is a file separator
@@ -155,7 +160,7 @@ public class LineSegmentationEvaluatorTool {
         // Write the results in a CSV file, if outPath is provided
         if (cmd.hasOption("csv")) {
             logger.info("Writing results in " + outputPath);
-            results.writeToCSV(xmlPredictionPath.substring(0, xmlPredictionPath.lastIndexOf(File.separator) + 1) + "results.csv");
+            results.writeToCSV(outputPath +  "-results.csv");
         }
 
         // Write evaluation image
