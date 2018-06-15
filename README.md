@@ -61,3 +61,24 @@ Additionally, when desired one can provide the original image and it will be ove
 This is particularly helpful to understand why certain artifacts are created. 
 
 ![Alt text](examples/example_overlap.png?raw=true)
+
+## Citing us
+
+If you use our software, please cite our paper as:
+
+``` latex
+@inproceedings{alberti2017evaluation,
+    address = {Kyoto, Japan},
+    archivePrefix = {arXiv},
+    arxivId = {1712.01656},
+    author = {Alberti, Michele and Bouillon, Manuel and Ingold, Rolf and Liwicki, Marcus},
+    booktitle = {2017 14th IAPR International Conference on Document Analysis and Recognition (ICDAR)},
+    doi = {10.1109/ICDAR.2017.311},
+    eprint = {1712.01656},
+    isbn = {978-1-5386-3586-5},
+    month = {nov},
+    pages = {43--47},
+    title = {{Open Evaluation Tool for Layout Analysis of Document Images}},
+    year = {2017}
+}
+```
