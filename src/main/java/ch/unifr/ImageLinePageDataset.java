@@ -96,34 +96,35 @@ public class ImageLinePageDataset {
         for (Element region : textRegions) {
 
             // Find the text region corresponding to main text area
-            if (region.getAttribute("id").getValue().equals("region_textline")) {
+            // DISABLED On 26.02.2019 as it seems that there is always only 1 text region
+            //if (region.getAttribute("id").getValue().equals("region_textline")) {
 
-                // Get all the text lines
-                List<Element> textLines = region.getChildren("TextLine", namespace);
-                for (Element line : textLines) {
+            // Get all the text lines
+            List<Element> textLines = region.getChildren("TextLine", namespace);
+            for (Element line : textLines) {
 
-                    Polygon polygon = new Polygon();
+                Polygon polygon = new Polygon();
 
-                    // Get the list of point and split it
-                    String coordString = line.getChild(TASKTAG, namespace).getAttributeValue("points");
-                    String[] coords = coordString.split(" ");
+                // Get the list of point and split it
+                String coordString = line.getChild(TASKTAG, namespace).getAttributeValue("points");
+                String[] coords = coordString.split(" ");
 
-                    // For each point
-                    for (int j = 0; j < coords.length; j++) {
+                // For each point
+                for (int j = 0; j < coords.length; j++) {
 
-                        // Split x and y
-                        String[] c = coords[j].split(",");
-                        int x = Integer.parseInt(c[0]);
-                        int y = Integer.parseInt(c[1]);
+                    // Split x and y
+                    String[] c = coords[j].split(",");
+                    int x = Integer.parseInt(c[0]);
+                    int y = Integer.parseInt(c[1]);
 
-                        // Add point
-                        polygon.addPoint(x, y);
-                    }
-
-                    // add the polygon
-                    polygons.add(polygon);
+                    // Add point
+                    polygon.addPoint(x, y);
                 }
+
+                // add the polygon
+                polygons.add(polygon);
             }
+            //}
         }
 
         logger.debug("found " + polygons.size() + " polygons in XML document");
