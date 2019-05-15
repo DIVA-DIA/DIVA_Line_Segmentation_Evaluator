@@ -327,7 +327,7 @@ public class LineSegmentationEvaluator {
          * prediction respectively.
          * The outcome is a list of maximal size |GT|X|P| where each element of
          * the list is a triplet (Possibility.class) which stores a possible
-         * match between two polygons and their score (in this case the UI).
+         * match between two polygons and their score (in this case the IU).
          * Triplets with the trivial score 0 (no overlap between the bounds of
          * the polygons) are omitted in the list.
          */
